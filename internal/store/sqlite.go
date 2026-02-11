@@ -187,6 +187,13 @@ func (s *Store) CountByStatus(status model.PostStatus) (int, error) {
 	return n, err
 }
 
+// CountAll 统计全部投稿数量
+func (s *Store) CountAll() (int, error) {
+	var n int
+	err := s.db.QueryRow("SELECT COUNT(*) FROM posts").Scan(&n)
+	return n, err
+}
+
 // ──────────────────────────────────────────
 // Account CRUD
 // ──────────────────────────────────────────

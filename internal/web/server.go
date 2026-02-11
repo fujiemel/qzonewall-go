@@ -116,6 +116,8 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/submit", s.handleAPISubmit)
 	mux.HandleFunc("/api/approve", s.handleAPIApprove)
 	mux.HandleFunc("/api/reject", s.handleAPIReject)
+	mux.HandleFunc("/api/approve/batch", s.handleAPIBatchApprove)
+	mux.HandleFunc("/api/reject/batch", s.handleAPIBatchReject)
 	mux.HandleFunc("/api/qrcode", s.handleAPIQRCode)
 	mux.HandleFunc("/api/qrcode/status", s.handleAPIQRStatus)
 	mux.HandleFunc("/api/health", s.handleAPIHealth)
@@ -261,16 +263,24 @@ func (s *Server) handleAdminPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.refreshInvalidRKeyInPosts(posts)
+	totalCount, _ := s.store.CountAll()
 	pendingCount, _ := s.store.CountByStatus(model.StatusPending)
+	approvedCount, _ := s.store.CountByStatus(model.StatusApproved)
+	rejectedCount, _ := s.store.CountByStatus(model.StatusRejected)
+	publishedCount, _ := s.store.CountByStatus(model.StatusPublished)
 
 	data := map[string]interface{}{
-		"Account":      account,
-		"Posts":        posts,
-		"PendingCount": pendingCount,
-		"StatusFilter": statusFilter,
-		"CookieValid":  s.qzClient != nil && s.qzClient.UIN() > 0,
-		"QzoneUIN":     int64(0),
-		"Message":      r.URL.Query().Get("msg"),
+		"Account":        account,
+		"Posts":          posts,
+		"TotalCount":     totalCount,
+		"PendingCount":   pendingCount,
+		"ApprovedCount":  approvedCount,
+		"RejectedCount":  rejectedCount,
+		"PublishedCount": publishedCount,
+		"StatusFilter":   statusFilter,
+		"CookieValid":    s.qzClient != nil && s.qzClient.UIN() > 0,
+		"QzoneUIN":       int64(0),
+		"Message":        r.URL.Query().Get("msg"),
 	}
 	if s.qzClient != nil {
 		data["QzoneUIN"] = s.qzClient.UIN()
@@ -414,6 +424,122 @@ func (s *Server) handleAPIReject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonResp(w, 200, true, fmt.Sprintf("稿件 #%d 已拒绝", id))
+}
+
+func (s *Server) handleAPIBatchApprove(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonResp(w, 405, false, "仅支持 POST")
+		return
+	}
+	account := s.currentAccount(r)
+	if account == nil || !account.IsAdmin() {
+		jsonResp(w, 403, false, "无权限")
+		return
+	}
+
+	ids, err := parseBatchIDs(r.FormValue("ids"))
+	if err != nil {
+		jsonResp(w, 400, false, err.Error())
+		return
+	}
+	updated, skipped, err := s.applyBatchStatus(ids, model.StatusApproved, "")
+	if err != nil {
+		jsonResp(w, 500, false, "批量通过失败")
+		return
+	}
+	jsonResp(w, 200, true, fmt.Sprintf("批量通过完成：成功 %d，跳过 %d", updated, skipped))
+}
+
+func (s *Server) handleAPIBatchReject(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonResp(w, 405, false, "仅支持 POST")
+		return
+	}
+	account := s.currentAccount(r)
+	if account == nil || !account.IsAdmin() {
+		jsonResp(w, 403, false, "无权限")
+		return
+	}
+
+	ids, err := parseBatchIDs(r.FormValue("ids"))
+	if err != nil {
+		jsonResp(w, 400, false, err.Error())
+		return
+	}
+	reason := strings.TrimSpace(r.FormValue("reason"))
+	updated, skipped, err := s.applyBatchStatus(ids, model.StatusRejected, reason)
+	if err != nil {
+		jsonResp(w, 500, false, "批量拒绝失败")
+		return
+	}
+	jsonResp(w, 200, true, fmt.Sprintf("批量拒绝完成：成功 %d，跳过 %d", updated, skipped))
+}
+
+func parseBatchIDs(raw string) ([]int64, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, fmt.Errorf("请先选择稿件")
+	}
+
+	parts := strings.Split(raw, ",")
+	ids := make([]int64, 0, len(parts))
+	seen := make(map[int64]struct{}, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		id, err := strconv.ParseInt(p, 10, 64)
+		if err != nil || id <= 0 {
+			return nil, fmt.Errorf("编号格式错误")
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("请先选择稿件")
+	}
+	return ids, nil
+}
+
+func (s *Server) applyBatchStatus(ids []int64, status model.PostStatus, reason string) (updated int, skipped int, err error) {
+	posts, err := s.store.GetPostsByIDs(ids)
+	if err != nil {
+		return 0, 0, err
+	}
+	if len(posts) == 0 {
+		return 0, len(ids), nil
+	}
+
+	for _, post := range posts {
+		if post == nil {
+			skipped++
+			continue
+		}
+		// 只处理待审核稿件，避免重复审核。
+		if post.Status != model.StatusPending {
+			skipped++
+			continue
+		}
+		post.Status = status
+		if status == model.StatusRejected {
+			post.Reason = reason
+		} else {
+			post.Reason = ""
+		}
+		if err := s.store.SavePost(post); err != nil {
+			return updated, skipped, err
+		}
+		updated++
+	}
+	missing := len(ids) - len(posts)
+	if missing > 0 {
+		skipped += missing
+	}
+	return updated, skipped, nil
 }
 
 // handleAPIQRCode 生成并返回 QQ 空间登录二维码。
