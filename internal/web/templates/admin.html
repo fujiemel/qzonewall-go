@@ -48,7 +48,11 @@
   .post-author { color: #666; font-size: 13px; margin-bottom: 6px; }
   .post-text { color: #333; font-size: 14px; line-height: 1.6; margin-bottom: 8px; white-space: pre-wrap; word-break: break-all; }
   .post-images { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-  .post-images img { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; cursor: pointer; }
+  .img-wrap { width: 80px; height: 80px; position: relative; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb; background: #f8fafc; }
+  .post-images img { width: 100%; height: 100%; object-fit: cover; cursor: pointer; display: block; }
+  .img-fallback { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; text-align: center; padding: 8px; font-size: 11px; color: #64748b; background: linear-gradient(135deg, #eef2ff, #f8fafc); }
+  .img-wrap.is-error .img-fallback { display: flex; }
+  .img-wrap.is-error img { display: none; }
   .post-actions { display: flex; gap: 8px; }
   .btn-approve { background: #22c55e; color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
   .btn-reject { background: #ef4444; color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
@@ -121,7 +125,12 @@
       {{if .Text}}<div class="post-text">{{.Text}}</div>{{end}}
       {{if hasImages .Images}}
       <div class="post-images">
-        {{range .Images}}<img src="{{.}}" onclick="window.open(this.src)" alt="图片">{{end}}
+        {{range .Images}}
+        <div class="img-wrap">
+          <img src="{{.}}" onclick="window.open(this.src)" alt="图片" loading="lazy" referrerpolicy="no-referrer" onerror="handleImageError(this)">
+          <div class="img-fallback">图片加载失败</div>
+        </div>
+        {{end}}
       </div>
       {{end}}
       {{if .Reason}}<div style="color:#999;font-size:13px;margin-bottom:8px">理由: {{.Reason}}</div>{{end}}
@@ -185,6 +194,14 @@ async function rejectPost(id) {
 }
 
 let qrPollTimer = null;
+
+function handleImageError(img) {
+  const wrapper = img.closest('.img-wrap');
+  if (wrapper) {
+    wrapper.classList.add('is-error');
+  }
+}
+
 function showQRModal() {
   document.getElementById('qrModal').classList.add('show');
   document.getElementById('qrStatus').textContent = '正在获取二维码...';
