@@ -140,7 +140,7 @@ func main() {
 	defer keepAlive.Stop()
 
 	if cfg.Web.Enable {
-		webServer := web.NewServer(cfg.Web, cfg.Wall, st, qzClient)
+		webServer := web.NewServer(cfg.Web, cfg.Wall, st, qzClient, renderer)
 		go func() {
 			if err := webServer.Start(); err != nil {
 				log.Printf("[Main] web server stopped: %v", err)

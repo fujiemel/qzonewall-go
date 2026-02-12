@@ -399,18 +399,50 @@ document.getElementById('selectAllPending').addEventListener('change', function(
 async function batchApprove() {
   const ids = getSelectedPostIDs();
   if (ids.length === 0) return;
-  if (!confirm('确认批量通过已选择的 ' + ids.length + ' 条稿件吗？')) return;
+  if (!confirm('确认合并发布已选择的 ' + ids.length + ' 条稿件吗？\n(将生成长图并发布到QQ空间)')) return;
+
+  const btn = document.getElementById('batchApproveBtn');
+  const originalText = btn.textContent;
+  
+  // 1. Set Loading State
+  btn.disabled = true;
+  btn.textContent = '正在渲染发布...';
+  btn.style.opacity = '0.7';
+  btn.style.cursor = 'wait';
+
   try {
     const resp = await fetch('/api/approve/batch', {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: 'ids=' + encodeURIComponent(ids.join(','))
     });
+    
+    // Check if response is valid JSON
+    const contentType = resp.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+       throw new Error("Server returned non-JSON response");
+    }
+
     const data = await resp.json();
-    alert(data.message || '操作完成');
-    if (data.ok) location.reload();
+    
+    if (data.ok) {
+      alert(data.message || '发布成功！');
+      location.reload();
+    } else {
+      alert('失败: ' + data.message);
+      // Reset button if failed
+      btn.disabled = false;
+      btn.textContent = originalText;
+      btn.style.opacity = '1';
+      btn.style.cursor = 'pointer';
+    }
   } catch(e) {
-    alert('批量通过失败');
+    console.error(e);
+    alert('请求失败或超时，请检查后台日志');
+    btn.disabled = false;
+    btn.textContent = originalText;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
   }
 }
 

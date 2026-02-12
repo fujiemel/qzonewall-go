@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context" // Add this
 	"crypto/rand"
 	"crypto/sha256"
 	"embed"
@@ -25,6 +26,7 @@ import (
 	qzone "github.com/guohuiyuan/qzone-go"
 	"github.com/guohuiyuan/qzonewall-go/internal/config"
 	"github.com/guohuiyuan/qzonewall-go/internal/model"
+	"github.com/guohuiyuan/qzonewall-go/internal/render" // Add this
 	"github.com/guohuiyuan/qzonewall-go/internal/rkey"
 	"github.com/guohuiyuan/qzonewall-go/internal/store"
 )
@@ -38,6 +40,7 @@ type Server struct {
 	wallCfg   config.WallConfig
 	store     *store.Store
 	qzClient  *qzone.Client
+	renderer  *render.Renderer // [ADDED] Need renderer for generating images
 	tmpl      *template.Template
 	server    *http.Server
 	uploadDir string
@@ -50,12 +53,19 @@ type Server struct {
 }
 
 // NewServer 创建 Web 服务实例。
-func NewServer(cfg config.WebConfig, wallCfg config.WallConfig, st *store.Store, qzClient *qzone.Client) *Server {
+func NewServer(
+	cfg config.WebConfig,
+	wallCfg config.WallConfig,
+	st *store.Store,
+	qzClient *qzone.Client,
+	renderer *render.Renderer, // [ADDED]
+) *Server {
 	return &Server{
 		cfg:       cfg,
 		wallCfg:   wallCfg,
 		store:     st,
 		qzClient:  qzClient,
+		renderer:  renderer, // [ADDED]
 		uploadDir: "uploads",
 	}
 }
@@ -450,17 +460,108 @@ func (s *Server) handleAPIBatchApprove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 1. Parse IDs
 	ids, err := parseBatchIDs(r.FormValue("ids"))
 	if err != nil {
 		jsonResp(w, 400, false, err.Error())
 		return
 	}
-	updated, skipped, err := s.applyBatchStatus(ids, model.StatusApproved, "")
+
+	// 2. Get Posts
+	posts, err := s.store.GetPostsByIDs(ids)
 	if err != nil {
-		jsonResp(w, 500, false, "批量通过失败")
+		jsonResp(w, 500, false, "数据库查询失败: "+err.Error())
 		return
 	}
-	jsonResp(w, 200, true, fmt.Sprintf("批量通过完成：成功 %d，跳过 %d", updated, skipped))
+
+	// 3. Filter only Pending posts
+	var validPosts []*model.Post
+	for _, p := range posts {
+		if p.Status == model.StatusPending {
+			validPosts = append(validPosts, p)
+		}
+	}
+
+	if len(validPosts) == 0 {
+		jsonResp(w, 400, false, "没有待审核的稿件，或已处理")
+		return
+	}
+
+	// 4. Prepare Publishing Logic (Similar to QQBot)
+	var summaryBuilder strings.Builder
+	summaryBuilder.WriteString(fmt.Sprintf("【表白墙更新】 %s\n", time.Now().Format("01/02")))
+	summaryBuilder.WriteString("----------------\n")
+
+	var imagesData [][]byte
+
+	// Render and Prepare Text
+	for _, post := range validPosts {
+		// A. Render
+		var imgData []byte
+		var renderErr error
+
+		if s.renderer != nil && s.renderer.Available() {
+			imgData, renderErr = s.renderer.RenderPost(post)
+		} else {
+			renderErr = fmt.Errorf("renderer not available")
+		}
+
+		if renderErr != nil || len(imgData) == 0 {
+			log.Printf("[Web] 渲染失败 #%d: %v", post.ID, renderErr)
+			// Decide: Fail the whole batch or skip?
+			// Here we skip this post to avoid blocking others, but warn in log
+			continue
+		}
+		imagesData = append(imagesData, imgData)
+
+		// B. Append Text
+		content := []rune(post.Text)
+		if len(content) > 20 {
+			summaryBuilder.WriteString(fmt.Sprintf("#%d: %s...\n", post.ID, string(content[:20])))
+		} else {
+			if post.Text == "" {
+				summaryBuilder.WriteString(fmt.Sprintf("#%d: [图片]\n", post.ID))
+			} else {
+				summaryBuilder.WriteString(fmt.Sprintf("#%d: %s\n", post.ID, post.Text))
+			}
+		}
+
+		// C. Mark as Published (Optimistic update)
+		post.Status = model.StatusPublished
+		_ = s.store.SavePost(post)
+	}
+
+	if len(imagesData) == 0 {
+		jsonResp(w, 500, false, "没有成功渲染的图片，取消发布")
+		return
+	}
+
+	summaryBuilder.WriteString("----------------\n")
+	summaryBuilder.WriteString("详情见图 👇")
+	finalText := summaryBuilder.String()
+
+	// 5. Publish to Qzone
+	// Note: Publishing takes time, but we hold the HTTP request to report success/fail
+	// If it takes too long (>30s), Nginx might timeout, but usually Qzone publish is fast enough.
+
+	opts := &qzone.PublishOption{
+		ImageBytes: imagesData,
+	}
+
+	_, publishErr := s.qzClient.Publish(context.Background(), finalText, opts)
+
+	if publishErr != nil {
+		log.Printf("[Web] 发布说说失败: %v", publishErr)
+		// Rollback status
+		for _, p := range validPosts {
+			p.Status = model.StatusPending
+			_ = s.store.SavePost(p)
+		}
+		jsonResp(w, 500, false, "发布到QQ空间失败: "+publishErr.Error())
+		return
+	}
+
+	jsonResp(w, 200, true, fmt.Sprintf("成功发布 %d 条稿件！", len(imagesData)))
 }
 
 func (s *Server) handleAPIBatchReject(w http.ResponseWriter, r *http.Request) {
