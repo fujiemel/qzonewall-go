@@ -1,4 +1,4 @@
-package web
+﻿package web
 
 import (
 	"crypto/rand"
@@ -289,7 +289,7 @@ func (s *Server) handleAdminPage(w http.ResponseWriter, r *http.Request) {
 		"RejectedCount":  rejectedCount,
 		"PublishedCount": publishedCount,
 		"StatusFilter":   statusFilter,
-		"CookieValid":    s.qzClient != nil && s.qzClient.UIN() > 0,
+		"CookieValid":    s.isQzoneLoggedIn(),
 		"QzoneUIN":       int64(0),
 		"Message":        r.URL.Query().Get("msg"),
 	}
@@ -664,7 +664,7 @@ func (s *Server) handleAPIQzoneStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"ok":           true,
-		"cookie_valid": uin > 0,
+		"cookie_valid": s.isQzoneLoggedIn(),
 		"uin":          uin,
 	})
 }
@@ -851,4 +851,14 @@ func openBrowser(url string) {
 	}
 	args = append(args, url)
 	_ = exec.Command(cmd, args...).Start()
+}
+
+func (s *Server) isQzoneLoggedIn() bool {
+	if s.qzClient == nil || s.qzClient.UIN() <= 0 {
+		return false
+	}
+	// main.go uses a bootstrap placeholder cookie during async init.
+	// Treat it as not logged in until a real cookie is updated.
+	raw := s.qzClient.Session().Cookie()
+	return !strings.Contains(raw, "p_skey=bootstrap")
 }

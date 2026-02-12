@@ -55,9 +55,6 @@ qzonewall-go/
 
 - Go `1.24+`
 - 一个可用的 NapCat + ZeroBot WebSocket 连接
-- `qzone-go` 本地模块（默认通过 `go.mod` 的 `replace ../qzone-go` 引用）
-
-如果你的目录结构和当前仓库一致，`../qzone-go` 已经存在，就不用额外改动。
 
 ## 快速开始
 
