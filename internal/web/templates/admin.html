@@ -21,30 +21,33 @@
     border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer;
     text-decoration: none; transition: all 0.2s ease; border: 1px solid transparent;
     box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+    position: relative;
   }
   .status-bar .badge:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(15, 23, 42, 0.09); }
+  .status-bar .badge:active { transform: translateY(0); box-shadow: 0 3px 10px rgba(15, 23, 42, 0.16) inset, 0 2px 8px rgba(15, 23, 42, 0.12); }
+  .status-bar .badge:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22), 0 6px 16px rgba(15, 23, 42, 0.1); }
   .status-bar .count {
     min-width: 24px; height: 22px; padding: 0 8px; border-radius: 999px;
     display: inline-flex; align-items: center; justify-content: center; font-size: 12px;
     font-weight: 700; background: rgba(255,255,255,0.75);
   }
-  .badge.active { color: white; border-color: transparent; }
-  .badge.active .count { background: rgba(255,255,255,0.22); color: white; }
+  .badge.active { color: #0f172a; border-color: transparent; box-shadow: 0 10px 22px rgba(15, 23, 42, 0.14), 0 2px 7px rgba(15, 23, 42, 0.12); }
+  .badge.active .count { background: rgba(255,255,255,0.92); color: #0f172a; }
   .badge.all { background: linear-gradient(135deg, #f8fafc, #eef2f7); color: #334155; border-color: #e2e8f0; }
   .badge.all .count { color: #334155; }
-  .badge.all.active { background: linear-gradient(135deg, #334155, #1f2937); }
+  .badge.all.active { background: linear-gradient(135deg, #cbd5e1, #94a3b8); color: #0f172a; }
   .badge.pending { background: linear-gradient(135deg, #fff7ed, #ffedd5); color: #c2410c; border-color: #fed7aa; }
   .badge.pending .count { color: #c2410c; }
-  .badge.pending.active { background: linear-gradient(135deg, #fb923c, #ea580c); }
+  .badge.pending.active { background: linear-gradient(135deg, #fdba74, #fb923c); color: #7c2d12; }
   .badge.approved { background: linear-gradient(135deg, #f0fdf4, #dcfce7); color: #166534; border-color: #bbf7d0; }
   .badge.approved .count { color: #166534; }
-  .badge.approved.active { background: linear-gradient(135deg, #22c55e, #16a34a); }
+  .badge.approved.active { background: linear-gradient(135deg, #86efac, #4ade80); color: #14532d; }
   .badge.rejected { background: linear-gradient(135deg, #fff5f5, #fee2e2); color: #b91c1c; border-color: #fecaca; }
   .badge.rejected .count { color: #b91c1c; }
-  .badge.rejected.active { background: linear-gradient(135deg, #ef4444, #dc2626); }
+  .badge.rejected.active { background: linear-gradient(135deg, #fca5a5, #f87171); color: #7f1d1d; }
   .badge.published { background: linear-gradient(135deg, #eff6ff, #dbeafe); color: #1d4ed8; border-color: #bfdbfe; }
   .badge.published .count { color: #1d4ed8; }
-  .badge.published.active { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+  .badge.published.active { background: linear-gradient(135deg, #93c5fd, #60a5fa); color: #1e3a8a; }
 
   /* Cookie 状态 */
   .cookie-bar { background: white; padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
@@ -57,21 +60,43 @@
   .btn-primary:hover { background: #5a6fd6; }
 
   /* 投稿卡片 */
-  .post-card { background: white; border-radius: 10px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .post-card {
+    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 14px;
+    border: 1px solid #e8edf4;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  .post-card:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(15, 23, 42, 0.1); border-color: #dce4ee; }
+  .post-card.pending { border-left: 4px solid #fb923c; }
+  .post-card.approved { border-left: 4px solid #22c55e; }
+  .post-card.rejected, .post-card.failed { border-left: 4px solid #ef4444; }
+  .post-card.published { border-left: 4px solid #3b82f6; }
   .post-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
   .post-id { font-weight: 700; color: #333; }
-  .post-meta { color: #999; font-size: 12px; }
-  .post-status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+  .post-meta { color: #94a3b8; font-size: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 999px; padding: 4px 10px; }
+  .post-status { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; margin-left: 8px; }
   .post-status.pending { background: #fff7ed; color: #c2410c; }
   .post-status.approved { background: #f0fdf4; color: #166534; }
   .post-status.rejected { background: #fff5f5; color: #c53030; }
   .post-status.failed { background: #fff5f5; color: #c53030; }
   .post-status.published { background: #eff6ff; color: #1d4ed8; }
-  .post-author { color: #666; font-size: 13px; margin-bottom: 6px; }
-  .post-text { color: #333; font-size: 14px; line-height: 1.6; margin-bottom: 8px; white-space: pre-wrap; word-break: break-all; }
-  .post-images { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-  .img-wrap { width: 80px; height: 80px; position: relative; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb; background: #f8fafc; }
+  .post-author { color: #64748b; font-size: 13px; margin-bottom: 8px; display: inline-flex; align-items: center; padding: 4px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 999px; }
+  .post-text {
+    color: #0f172a; font-size: 14px; line-height: 1.75; margin-bottom: 12px; white-space: pre-wrap; word-break: break-word;
+    background: #ffffff; border: 1px solid #edf2f7; border-radius: 10px; padding: 10px 12px;
+  }
+  .post-images { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .img-wrap {
+    width: 86px; height: 86px; position: relative; border-radius: 10px; overflow: hidden;
+    border: 1px solid #e5e7eb; background: #f8fafc;
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
+  }
   .post-images img { width: 100%; height: 100%; object-fit: cover; cursor: pointer; display: block; }
+  .img-wrap:hover img { transform: scale(1.06); }
+  .post-images img { transition: transform 0.2s ease; }
   .img-fallback { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; text-align: center; padding: 8px; font-size: 11px; color: #64748b; background: linear-gradient(135deg, #eef2ff, #f8fafc); }
   .img-wrap.is-error .img-fallback { display: flex; }
   .img-wrap.is-error img { display: none; }
@@ -164,7 +189,7 @@
   <!-- 投稿列表 -->
   {{if .Posts}}
     {{range .Posts}}
-    <div class="post-card" id="post-{{.ID}}">
+    <div class="post-card {{statusClass .Status}}" id="post-{{.ID}}">
       <div class="post-header">
         <div>
           {{if eq (printf "%s" .Status) "pending"}}<input type="checkbox" class="post-select pending-select" value="{{.ID}}" onchange="updateBatchSelection()">{{end}}
