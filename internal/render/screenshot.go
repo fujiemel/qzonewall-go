@@ -255,9 +255,19 @@ func (r *Renderer) RenderPost(post *model.Post) ([]byte, error) {
 	}
 
 	// 3.5 水印
-	dc.SetFontFace(r.getFace(SizeMeta))
+	wmFace := r.getFace(SizeMeta)
+	dc.SetFontFace(wmFace)
 	dc.SetHexColor("#AAAAAA")
-	dc.DrawStringAnchored(fmt.Sprintf("#%d  %s", post.ID, time.Now().Format("15:04")), CanvasWidth-Padding, float64(totalH)-20, 1.0, 1.0)
+	wmText := fmt.Sprintf("#%d  %s", post.ID, time.Now().Format("2006-01-02 15:04"))
+	wmW, _ := dc.MeasureString(wmText)
+	descent := float64(wmFace.Metrics().Descent.Ceil())
+	// Place watermark by measured width and baseline to avoid right/bottom clipping.
+	wmX := CanvasWidth - Padding - wmW
+	if wmX < Padding {
+		wmX = Padding
+	}
+	wmY := float64(totalH) - 8 - descent
+	dc.DrawString(wmText, wmX, wmY)
 
 	var buf bytes.Buffer
 	if err := jpeg.Encode(&buf, dc.Image(), &jpeg.Options{Quality: 90}); err != nil {
