@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"log"
@@ -60,12 +60,9 @@ func main() {
 	}
 	log.Println("[Main] qq bot started")
 
-	initCookie, err := task.TryGetCookie(cfg.Qzone)
-	if err != nil {
-		log.Printf("[Main] initial cookie unavailable: %v", err)
-		log.Println("[Main] use /扫码 or web admin QR login to refresh cookie")
-		initCookie = "uin=o0;skey=@placeholder;p_skey=placeholder"
-	}
+	// Start with a valid-form placeholder cookie to avoid blocking startup.
+	// Real cookie bootstrap (GetCookies -> QR fallback) runs asynchronously below.
+	initCookie := "uin=o1;skey=@bootstrap;p_skey=bootstrap"
 
 	qzClient, err := qzone.NewClient(initCookie,
 		qzone.WithTimeout(cfg.Qzone.Timeout),
@@ -73,22 +70,7 @@ func main() {
 		qzone.WithOnSessionExpired(task.RefreshCookie(cfg.Bot)),
 	)
 	if err != nil {
-		log.Printf("[Main] qzone client create failed: %v", err)
-
-		refreshFn := task.RefreshCookie(cfg.Bot)
-		newCookie, refreshErr := refreshFn()
-		if refreshErr != nil {
-			log.Fatalf("[Main] qzone client init failed and cookie refresh failed: %v", refreshErr)
-		}
-
-		qzClient, err = qzone.NewClient(newCookie,
-			qzone.WithTimeout(cfg.Qzone.Timeout),
-			qzone.WithMaxRetry(cfg.Qzone.MaxRetry),
-			qzone.WithOnSessionExpired(task.RefreshCookie(cfg.Bot)),
-		)
-		if err != nil {
-			log.Fatalf("[Main] qzone client recreate failed after cookie refresh: %v", err)
-		}
+		log.Fatalf("[Main] qzone client create failed: %v", err)
 	}
 
 	if qzClient == nil {
@@ -96,9 +78,24 @@ func main() {
 	}
 	log.Println("[Main] qzone client created")
 
-	if err := task.EnsureCookieValidOnStartup(cfg.Qzone, cfg.Bot, qzClient); err != nil {
-		log.Printf("[Main] startup cookie validation failed: %v", err)
-	}
+	go func() {
+		log.Println("[Main] async cookie bootstrap started")
+		res := <-task.TryGetCookieAsync(cfg.Qzone)
+		if res.Err != nil {
+			log.Printf("[Main] async cookie bootstrap failed: %v", res.Err)
+			log.Println("[Main] use /扫码 or web admin QR login to refresh cookie")
+			return
+		}
+		if err := qzClient.UpdateCookie(res.Cookie); err != nil {
+			log.Printf("[Main] async cookie update failed: %v", err)
+			return
+		}
+		log.Printf("[Main] async cookie bootstrap success, uin=%d", qzClient.UIN())
+
+		if err := task.EnsureCookieValidOnStartup(cfg.Qzone, cfg.Bot, qzClient); err != nil {
+			log.Printf("[Main] startup cookie validation failed: %v", err)
+		}
+	}()
 
 	qqBot.SetClient(qzClient)
 
@@ -128,4 +125,3 @@ func main() {
 	s := <-sig
 	log.Printf("[Main] got signal %v, shutting down...", s)
 }
-

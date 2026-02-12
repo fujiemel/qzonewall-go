@@ -1,4 +1,4 @@
-﻿package task
+package task
 
 import (
 	"bytes"
@@ -23,6 +23,11 @@ type KeepAlive struct {
 	client   *qzone.Client
 	ctx      context.Context
 	cancel   context.CancelFunc
+}
+
+type CookieResult struct {
+	Cookie string
+	Err    error
 }
 
 func NewKeepAlive(qzoneCfg config.QzoneConfig, botCfg config.BotConfig, client *qzone.Client) *KeepAlive {
@@ -168,6 +173,19 @@ func TryGetCookie(_ config.QzoneConfig) (string, error) {
 	}
 	log.Println("[Init] all bot GetCookies attempts failed, fallback to QR")
 	return tryQRLogin()
+}
+
+// TryGetCookieAsync runs the full cookie bootstrap flow in background:
+// 1) ZeroBot GetCookies retries
+// 2) fallback QR login
+func TryGetCookieAsync(qzoneCfg config.QzoneConfig) <-chan CookieResult {
+	ch := make(chan CookieResult, 1)
+	go func() {
+		defer close(ch)
+		cookie, err := TryGetCookie(qzoneCfg)
+		ch <- CookieResult{Cookie: cookie, Err: err}
+	}()
+	return ch
 }
 
 // RefreshCookie is used by qzone.WithOnSessionExpired callback.
