@@ -3,7 +3,7 @@
 # QQ空间配置
 qzone:
   # Cookie 有效性轮询间隔
-  keep_alive: 1m
+  keep_alive: 10s
   # 接口最大重试次数
   max_retry: 2
   # HTTP 超时
