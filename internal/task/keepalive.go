@@ -12,7 +12,6 @@ import (
 
 	qzone "github.com/guohuiyuan/qzone-go"
 	"github.com/guohuiyuan/qzonewall-go/internal/config"
-	"github.com/guohuiyuan/qzonewall-go/internal/rkey"
 	"github.com/mdp/qrterminal/v3"
 	"github.com/tuotoo/qrcode"
 	zero "github.com/wdvxdr1123/ZeroBot"
@@ -82,7 +81,6 @@ func (k *KeepAlive) check() {
 func (k *KeepAlive) tryRefreshFromBot() bool {
 	var refreshed bool
 	zero.RangeBot(func(id int64, ctx *zero.Ctx) bool {
-		_, _ = rkey.UpdateFromRaw(ctx.NcGetRKey().Raw)
 
 		cookie := ctx.GetCookies("qzone.qq.com")
 		if cookie == "" {

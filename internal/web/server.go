@@ -13,7 +13,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -27,7 +26,6 @@ import (
 	"github.com/guohuiyuan/qzonewall-go/internal/config"
 	"github.com/guohuiyuan/qzonewall-go/internal/model"
 	"github.com/guohuiyuan/qzonewall-go/internal/render"
-	"github.com/guohuiyuan/qzonewall-go/internal/rkey"
 	"github.com/guohuiyuan/qzonewall-go/internal/store"
 	zero "github.com/wdvxdr1123/ZeroBot"
 )
@@ -284,8 +282,6 @@ func (s *Server) handleAdminPage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("[Web] 查询投稿失败: %v", err)
 	}
-
-	s.refreshInvalidRKeyInPosts(posts)
 
 	// 🟢 修改：构建用于展示的 Post 列表，将 file ID 还原为 URL
 	displayPosts := make([]*model.Post, len(posts))
@@ -780,9 +776,6 @@ func (s *Server) handleAPIQzoneRefresh(w http.ResponseWriter, r *http.Request) {
 	var uin int64
 
 	zero.RangeBot(func(id int64, ctx *zero.Ctx) bool {
-		if rk := ctx.NcGetRKey(); rk.Raw != "" {
-			_, _ = rkey.UpdateFromRaw(rk.Raw)
-		}
 
 		cookie := ctx.GetCookies("qzone.qq.com")
 		if cookie == "" {
@@ -892,68 +885,6 @@ func (s *Server) SetCookieFile(cookieFile string) {
 
 func (s *Server) GetUploadDir() string {
 	return s.uploadDir
-}
-
-func (s *Server) refreshInvalidRKeyInPosts(posts []*model.Post) {
-	if len(posts) == 0 {
-		return
-	}
-	rk := strings.TrimSpace(rkey.GetByType(10))
-	if rk == "" {
-		_ = rkey.RefreshFromBots()
-		rk = strings.TrimSpace(rkey.GetByType(10))
-	}
-	if rk == "" {
-		log.Printf("[Web] refresh rkey skipped: type=10 rkey not available")
-		return
-	}
-
-	for _, post := range posts {
-		if post == nil || len(post.Images) == 0 {
-			continue
-		}
-		updated := false
-		for i, raw := range post.Images {
-			raw = strings.TrimSpace(raw)
-			if !hasRKey(raw) {
-				continue
-			}
-			fixed, err := replaceRKey(raw, rk)
-			if err != nil {
-				log.Printf("[Web] refresh rkey failed: %v | url=%s", err, raw)
-				continue
-			}
-
-			post.Images[i] = fixed
-			updated = true
-			log.Printf("[Web] rkey refreshed: %s", fixed)
-		}
-
-		if updated {
-			if err := s.store.SavePost(post); err != nil {
-				log.Printf("[Web] save refreshed image urls failed: %v", err)
-			}
-		}
-	}
-}
-
-func hasRKey(raw string) bool {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return false
-	}
-	return u.Query().Get("rkey") != ""
-}
-
-func replaceRKey(raw, rk string) (string, error) {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return "", err
-	}
-	q := u.Query()
-	q.Set("rkey", rk)
-	u.RawQuery = q.Encode()
-	return u.String(), nil
 }
 
 func localWebURL(addr string) string {

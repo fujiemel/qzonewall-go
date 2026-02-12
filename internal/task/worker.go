@@ -8,7 +8,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -17,7 +16,6 @@ import (
 	"github.com/guohuiyuan/qzonewall-go/internal/config"
 	"github.com/guohuiyuan/qzonewall-go/internal/model"
 	"github.com/guohuiyuan/qzonewall-go/internal/render"
-	"github.com/guohuiyuan/qzonewall-go/internal/rkey"
 	"github.com/guohuiyuan/qzonewall-go/internal/store"
 
 	zero "github.com/wdvxdr1123/ZeroBot" // 新增引入
@@ -136,10 +134,6 @@ func (w *Worker) pollAndPublish(workerID int) {
 
 // publish 发布到 QQ 空间。
 func (w *Worker) publish(post *model.Post) error {
-	// 发布前统一校验带 rkey 的图片链接，失效则自动刷新 rkey。
-	// 注意：这里只会处理 HTTP 链接，file ID 会被跳过
-	w.refreshInvalidRKeyImages(post)
-
 	// 构建说说文本。
 	text := post.Text
 	if w.wallCfg.ShowAuthor && !post.Anon {
@@ -189,39 +183,6 @@ func (w *Worker) publish(post *model.Post) error {
 	w.mu.Unlock()
 
 	return nil
-}
-
-func (w *Worker) refreshInvalidRKeyImages(post *model.Post) {
-	if len(post.Images) == 0 {
-		return
-	}
-
-	updated := false
-	for i, raw := range post.Images {
-		raw = strings.TrimSpace(raw)
-		if !hasRKey(raw) {
-			continue
-		}
-		if isImageURLValid(raw) {
-			continue
-		}
-
-		fixed, err := refreshOneURL(raw)
-		if err != nil {
-			log.Printf("[Worker] 刷新 rkey 失败: %v | url=%s", err, raw)
-			continue
-		}
-
-		post.Images[i] = fixed
-		updated = true
-		log.Printf("[Worker] rkey 已刷新: %s", fixed)
-	}
-
-	if updated {
-		if err := w.store.SavePost(post); err != nil {
-			log.Printf("[Worker] 回写刷新后的图片链接失败: %v", err)
-		}
-	}
 }
 
 // ── Image Resolution Helpers ──
@@ -279,49 +240,6 @@ func isImageURLValid(raw string) bool {
 	}
 	_, _, err = image.DecodeConfig(bytes.NewReader(b))
 	return err == nil
-}
-
-func hasRKey(raw string) bool {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return false
-	}
-	return u.Query().Get("rkey") != ""
-}
-
-func replaceRKey(raw, rkey string) (string, error) {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return "", err
-	}
-	q := u.Query()
-	q.Set("rkey", rkey)
-	u.RawQuery = q.Encode()
-	return u.String(), nil
-}
-
-func refreshOneURL(raw string) (string, error) {
-	try := func(candidates []string) (string, bool) {
-		for _, c := range candidates {
-			fixed, err := replaceRKey(raw, c)
-			if err != nil {
-				continue
-			}
-			if isImageURLValid(fixed) {
-				return fixed, true
-			}
-		}
-		return "", false
-	}
-
-	if fixed, ok := try(rkey.CandidatesForURL(raw)); ok {
-		return fixed, nil
-	}
-	_ = rkey.RefreshFromBots()
-	if fixed, ok := try(rkey.CandidatesForURL(raw)); ok {
-		return fixed, nil
-	}
-	return "", fmt.Errorf("no valid rkey candidate matched this resource type")
 }
 
 // waitRateLimit 等待频率限制窗口。
