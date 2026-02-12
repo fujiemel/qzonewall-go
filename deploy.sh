@@ -73,7 +73,7 @@ web:
   enable: true
   addr: ":8081"
   admin_user: "admin"
-  admin_pass: "change_this_password"  # 务必修改默认密码！
+  admin_pass: "admin123"  # 务必修改默认密码！
 EOF
     echo "✅ 配置文件已创建: config.yaml"
     echo "⚠️  请编辑 config.yaml 文件，配置你的 QQ 号、NapCat 地址和密码"
@@ -95,7 +95,6 @@ docker run -d \
   --restart unless-stopped \
   -p 8081:8081 \
   -v "$(pwd)/config.yaml:/home/appuser/config.yaml" \
-  -v "$(pwd)/data.db:/home/appuser/data.db" \
   guohuiyuan/qzonewall-go:latest
 
 # 等待容器启动
