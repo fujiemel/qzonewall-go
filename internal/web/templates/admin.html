@@ -8,10 +8,40 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f5f5f5; min-height: 100vh; }
-  .navbar { background: white; padding: 12px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
-  .navbar h2 { color: #333; font-size: 18px; }
+  .navbar {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    padding: 12px 20px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 14px auto 0;
+    max-width: 920px;
+  }
+  .navbar h2 { color: #0f172a; font-size: 18px; letter-spacing: 0.2px; }
   .navbar-right { display: flex; align-items: center; gap: 16px; font-size: 13px; }
-  .navbar-right a { color: #667eea; text-decoration: none; }
+  .navbar-right .user-chip {
+    color: #475569;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-weight: 600;
+  }
+  .navbar-right a {
+    color: #334155;
+    text-decoration: none;
+    font-weight: 600;
+    background: #ffffff;
+    border: 1px solid #dbe5ef;
+    border-radius: 8px;
+    padding: 6px 12px;
+    transition: all 0.2s ease;
+  }
+  .navbar-right a:hover { background: #f1f5f9; border-color: #cbd5e1; transform: translateY(-1px); }
+  .navbar-right a:active { transform: translateY(0); }
   .container { max-width: 900px; margin: 20px auto; padding: 0 16px; }
 
   /* 状态栏 */
@@ -119,24 +149,70 @@
   .msg { padding: 10px 16px; border-radius: 8px; margin-bottom: 12px; font-size: 14px; }
   .msg.ok { background: #f0fdf4; color: #166534; }
   .batch-bar {
-    background: white; padding: 12px 14px; border-radius: 10px; margin-bottom: 12px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); padding: 12px 14px; border-radius: 12px; margin-bottom: 12px;
     display: flex; justify-content: space-between; align-items: center; gap: 12px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06); flex-wrap: wrap;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06); flex-wrap: wrap;
   }
   .batch-left { display: flex; align-items: center; gap: 10px; color: #334155; font-size: 13px; }
+  .select-all-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: #ffffff;
+    border: 1px solid #dbe5ef;
+    border-radius: 10px;
+    font-weight: 600;
+    color: #334155;
+    cursor: pointer;
+    user-select: none;
+  }
+  .select-all-wrap:hover { border-color: #cbd5e1; background: #f8fafc; }
+  .select-all-wrap input[type="checkbox"] { width: 16px; height: 16px; accent-color: #f59e0b; cursor: pointer; }
+  #selectedCount {
+    color: #1e293b;
+    font-weight: 700;
+    background: #ecfeff;
+    border: 1px solid #bae6fd;
+    border-radius: 999px;
+    padding: 5px 10px;
+  }
   .batch-actions { display: flex; gap: 8px; }
   .btn-batch { border: none; border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
   .btn-batch.approve { background: #16a34a; color: white; }
   .btn-batch.reject { background: #dc2626; color: white; }
+  .btn-batch:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.02); }
+  .btn-batch:active:not(:disabled) { transform: translateY(0); }
   .btn-batch:disabled { opacity: 0.5; cursor: not-allowed; }
-  .post-select { margin-right: 8px; vertical-align: middle; }
+  .post-select { margin-right: 8px; vertical-align: middle; width: 14px; height: 14px; accent-color: #f59e0b; cursor: pointer; }
+
+  @media (max-width: 640px) {
+    .navbar {
+      margin: 10px 12px 0;
+      padding: 10px 12px;
+      border-radius: 10px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .navbar-right {
+      width: 100%;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .navbar-right a { padding: 5px 10px; }
+    .batch-bar { padding: 10px; }
+    .batch-left, .batch-actions { width: 100%; }
+    .batch-actions button { flex: 1; }
+  }
 </style>
 </head>
 <body>
 <div class="navbar">
   <h2>🔧 表白墙管理</h2>
   <div class="navbar-right">
-    <span style="color:#999">{{.Account.Username}}</span>
+    <span class="user-chip">{{.Account.Username}}</span>
     <a href="/submit">投稿页</a>
     <a href="/logout">退出</a>
   </div>
@@ -177,7 +253,7 @@
 
   <div class="batch-bar">
     <div class="batch-left">
-      <label><input type="checkbox" id="selectAllPending"> 全选待审核</label>
+      <label class="select-all-wrap"><input type="checkbox" id="selectAllPending"> 全选待审核</label>
       <span id="selectedCount">已选择 0 条</span>
     </div>
     <div class="batch-actions">
