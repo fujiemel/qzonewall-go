@@ -5,3 +5,4 @@ data.db*
 *.exe
 *.jpg
 qrcode.png
+config.yaml.bak

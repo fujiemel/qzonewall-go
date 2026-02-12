@@ -22,7 +22,6 @@ type Config struct {
 
 // QzoneConfig QQ空间账号配置
 type QzoneConfig struct {
-	CookieFile string        `yaml:"cookie_file"`
 	KeepAlive time.Duration `yaml:"keep_alive"`
 	MaxRetry  int           `yaml:"max_retry"`
 	Timeout   time.Duration `yaml:"timeout"`

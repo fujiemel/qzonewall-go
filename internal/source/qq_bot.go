@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -539,9 +538,6 @@ func (b *QQBot) handleScanQR(ctx *zero.Ctx) {
 				if updateErr := b.qzClient.UpdateCookie(cookie); updateErr != nil {
 					ctx.Send(message.Text("❌ Cookie更新失败: " + updateErr.Error()))
 					return
-				}
-				if b.qzoneCfg.CookieFile != "" {
-					_ = os.WriteFile(b.qzoneCfg.CookieFile, []byte(cookie), 0600)
 				}
 				ctx.Send(message.Text(fmt.Sprintf("✅ QQ空间登录成功！UIN=%d", b.qzClient.UIN())))
 				return

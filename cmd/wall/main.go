@@ -1,9 +1,13 @@
-package main
+﻿package main
 
 import (
+	"crypto/rand"
+	_ "embed"
+	"encoding/hex"
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	qzone "github.com/guohuiyuan/qzone-go"
@@ -14,6 +18,19 @@ import (
 	"github.com/guohuiyuan/qzonewall-go/internal/task"
 	"github.com/guohuiyuan/qzonewall-go/internal/web"
 )
+
+//go:embed example_config.yaml
+var exampleConfig string
+
+// generateRandomPassword 生成一个16字符的随机密码
+func generateRandomPassword() string {
+	bytes := make([]byte, 8) // 8字节 = 16个十六进制字符
+	if _, err := rand.Read(bytes); err != nil {
+		// 如果随机生成失败，使用默认密码
+		return "admin123"
+	}
+	return hex.EncodeToString(bytes)
+}
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -29,6 +46,17 @@ func main() {
 		default:
 			cfgPath = os.Args[i]
 		}
+	}
+
+	// 检查配置文件是否存在，如果不存在则生成示例配置
+	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
+		randomPass := generateRandomPassword()
+		configContent := strings.Replace(exampleConfig, `admin_pass: ""`, `admin_pass: "`+randomPass+`"`, 1)
+		if err := os.WriteFile(cfgPath, []byte(configContent), 0644); err != nil {
+			log.Fatalf("create example config failed: %v", err)
+		}
+		log.Printf("[Main] example config.yaml generated with random password: %s, please edit it and restart", randomPass)
+		os.Exit(0)
 	}
 
 	cfg, err := config.Load(cfgPath)
