@@ -89,7 +89,8 @@ func (r *Renderer) RenderPost(post *model.Post) ([]byte, error) {
 
 	var lines []string
 	if post.Text != "" {
-		lines = measureDc.WordWrap(post.Text, contentMaxW-(BubblePadH*2))
+		// 使用自定义的 WordWrap，传入 measureDc 以获取当前字体大小
+		lines = WordWrap(measureDc, post.Text, contentMaxW-(BubblePadH*2))
 	}
 
 	fontH := measureDc.FontHeight()
@@ -391,6 +392,35 @@ func cropToSquare(src image.Image, size int) image.Image {
 	draw.Draw(dst, dst.Bounds(), tmp, image.Point{X: cropX, Y: cropY}, draw.Src)
 
 	return dst
+}
+
+// WordWrap 自定义换行函数，支持中文
+func WordWrap(dc *gg.Context, text string, maxWidth float64) []string {
+	var lines []string
+
+	// 先按原有的换行符拆分段落
+	paragraphs := strings.Split(text, "\n")
+
+	for _, p := range paragraphs {
+		var line string
+		for _, r := range p {
+			// 预测加上当前字符后的宽度
+			s := string(r)
+			w, _ := dc.MeasureString(line + s)
+
+			if w > maxWidth {
+				// 如果超宽，先保存当前行，开启新行
+				lines = append(lines, line)
+				line = s
+			} else {
+				// 未超宽，追加字符
+				line += s
+			}
+		}
+		// 保存段落的最后一行
+		lines = append(lines, line)
+	}
+	return lines
 }
 
 func resolveLocalUploadPath(raw string) string {
