@@ -1,4 +1,4 @@
-﻿// Package main generates winres.json for qzonewall-go
+// Package main generates winres.json for qzonewall-go
 package main
 
 import (
@@ -78,7 +78,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			panic(err)
+		}
+	}()
 
 	version := "v1.0.0"
 	commitcnt := strings.Builder{}

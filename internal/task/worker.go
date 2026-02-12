@@ -1,4 +1,4 @@
-﻿package task
+package task
 
 import (
 	"bytes"
@@ -16,8 +16,8 @@ import (
 	qzone "github.com/guohuiyuan/qzone-go"
 	"github.com/guohuiyuan/qzonewall-go/internal/config"
 	"github.com/guohuiyuan/qzonewall-go/internal/model"
-	"github.com/guohuiyuan/qzonewall-go/internal/rkey"
 	"github.com/guohuiyuan/qzonewall-go/internal/render"
+	"github.com/guohuiyuan/qzonewall-go/internal/rkey"
 	"github.com/guohuiyuan/qzonewall-go/internal/store"
 )
 
@@ -233,7 +233,9 @@ func isImageURLValid(raw string) bool {
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return false
 	}
@@ -264,17 +266,6 @@ func replaceRKey(raw, rkey string) (string, error) {
 	q.Set("rkey", rkey)
 	u.RawQuery = q.Encode()
 	return u.String(), nil
-}
-
-func getRKeyFromCache() (string, error) {
-	v := strings.TrimSpace(rkey.Get())
-	if v == "" {
-		v = strings.TrimSpace(rkey.RefreshFromBots())
-	}
-	if v == "" {
-		return "", fmt.Errorf("rkey not available yet: no active bot context returned NcGetRKey; check ZeroBot WS connection")
-	}
-	return v, nil
 }
 
 func refreshOneURL(raw string) (string, error) {
@@ -317,4 +308,3 @@ func (w *Worker) waitRateLimit() {
 		time.Sleep(wait)
 	}
 }
-

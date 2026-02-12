@@ -81,7 +81,7 @@ func (r *Renderer) RenderPost(post *model.Post) ([]byte, error) {
 	if hasAvatar {
 		contentMaxW -= AvatarSize + AvatarRight
 	}
-	
+
 	measureDc := gg.NewContext(1, 1)
 	textFace := r.getFace(SizeText)
 	measureDc.SetFontFace(textFace)
@@ -143,7 +143,7 @@ func (r *Renderer) RenderPost(post *model.Post) ([]byte, error) {
 
 	// ── 3. 开始绘制 ──
 	dc := gg.NewContext(int(CanvasWidth), totalH)
-	dc.SetHexColor("#F5F5F5") 
+	dc.SetHexColor("#F5F5F5")
 	dc.Clear()
 
 	startX := Padding
@@ -192,10 +192,10 @@ func (r *Renderer) RenderPost(post *model.Post) ([]byte, error) {
 		// 文字
 		dc.SetFontFace(textFace)
 		dc.SetHexColor("#000000")
-		
+
 		metrics := textFace.Metrics()
 		ascent := float64(metrics.Ascent.Ceil())
-		
+
 		textY := currContentY + BubblePadV + ascent
 		for i, line := range lines {
 			dc.DrawString(line, contentX+BubblePadH, textY+float64(i)*fontH*LineHeight)
@@ -213,9 +213,11 @@ func (r *Renderer) RenderPost(post *model.Post) ([]byte, error) {
 				origW, origH := float64(b.Dx()), float64(b.Dy())
 				maxW, maxH := 400.0, 500.0
 				scale := math.Min(maxW/origW, maxH/origH)
-				if scale > 1.0 { scale = 1.0 }
+				if scale > 1.0 {
+					scale = 1.0
+				}
 				tw, th := int(origW*scale), int(origH*scale)
-				
+
 				finalImg := resizeImage(rawImg, tw, th)
 
 				dc.Push()
@@ -232,13 +234,15 @@ func (r *Renderer) RenderPost(post *model.Post) ([]byte, error) {
 		} else {
 			// 九宫格
 			for i, imgUrl := range post.Images {
-				if i >= 9 { break }
+				if i >= 9 {
+					break
+				}
 				col := i % imgCols
 				row := i / imgCols
-				
+
 				ix := contentX + float64(col)*(ImgSize+ImgGap)
 				iy := currContentY + float64(row)*(ImgSize+ImgGap)
-				
+
 				img := downloadAndResize(imgUrl, int(ImgSize), int(ImgSize))
 				if img != nil {
 					dc.Push()
@@ -289,14 +293,20 @@ func drawErrorPlaceholder(dc *gg.Context, x, y, w, h float64) {
 
 // 下载工具（带 Header）
 func downloadImage(url string) image.Image {
-	if url == "" { return nil }
+	if url == "" {
+		return nil
+	}
 	if local := resolveLocalUploadPath(url); local != "" {
 		f, err := os.Open(local)
 		if err != nil {
 			log.Printf("加载本地图片失败: %v | path: %s", err, local)
 			return nil
 		}
-		defer f.Close()
+		defer func() {
+			if err := f.Close(); err != nil {
+				log.Printf("关闭本地图片文件失败: %v | path: %s", err, local)
+			}
+		}()
 		img, _, err := image.Decode(f)
 		if err != nil {
 			log.Printf("解析本地图片失败: %v | path: %s", err, local)
@@ -305,20 +315,30 @@ func downloadImage(url string) image.Image {
 		return img
 	}
 	req, err := http.NewRequest("GET", url, nil)
-	if err != nil { return nil }
+	if err != nil {
+		return nil
+	}
 	// 伪装浏览器防止 403
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-	
+
 	client := &http.Client{Timeout: 8 * time.Second}
 	resp, err := client.Do(req)
-	if err != nil { 
+	if err != nil {
 		log.Printf("下载出错: %v | URL: %s", err, url)
-		return nil 
+		return nil
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 { return nil }
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("关闭响应体失败: %v | URL: %s", err, url)
+		}
+	}()
+	if resp.StatusCode != 200 {
+		return nil
+	}
 	img, _, err := image.Decode(resp.Body)
-	if err != nil { return nil }
+	if err != nil {
+		return nil
+	}
 	return img
 }
 
@@ -345,7 +365,9 @@ func resizeImage(src image.Image, w, h int) image.Image {
 
 func downloadAndResize(url string, w, h int) image.Image {
 	src := downloadImage(url)
-	if src == nil { return nil }
+	if src == nil {
+		return nil
+	}
 	if w == h {
 		dst := image.NewRGBA(image.Rect(0, 0, w, h))
 		draw.CatmullRom.Scale(dst, dst.Bounds(), src, src.Bounds(), draw.Over, nil)

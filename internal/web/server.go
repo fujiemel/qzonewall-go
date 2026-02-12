@@ -334,7 +334,6 @@ func (s *Server) handleAPISubmit(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
-		defer f.Close()
 
 		ext := filepath.Ext(fh.Filename)
 		if ext == "" {
@@ -343,9 +342,11 @@ func (s *Server) handleAPISubmit(w http.ResponseWriter, r *http.Request) {
 		filename := fmt.Sprintf("%d_%s%s", time.Now().UnixNano(), randomHex(8), ext)
 		dst, err := os.Create(filepath.Join(s.uploadDir, filename))
 		if err != nil {
+			_ = f.Close()
 			continue
 		}
 		_, _ = io.Copy(dst, f)
+		_ = f.Close()
 		_ = dst.Close()
 
 		images = append(images, "/uploads/"+filename)
@@ -756,11 +757,6 @@ func (s *Server) SetCookieFile(cookieFile string) {
 // GetUploadDir 返回上传目录。
 func (s *Server) GetUploadDir() string {
 	return s.uploadDir
-}
-
-// splitStatusFilter 模板辅助函数。
-func splitStatusFilter(s string) []string {
-	return strings.Split(s, ",")
 }
 
 func (s *Server) refreshInvalidRKeyInPosts(posts []*model.Post) {

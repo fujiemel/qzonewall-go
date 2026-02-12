@@ -13,8 +13,8 @@ import (
 	qzone "github.com/guohuiyuan/qzone-go"
 	"github.com/guohuiyuan/qzonewall-go/internal/config"
 	"github.com/guohuiyuan/qzonewall-go/internal/model"
-	"github.com/guohuiyuan/qzonewall-go/internal/rkey"
 	"github.com/guohuiyuan/qzonewall-go/internal/render"
+	"github.com/guohuiyuan/qzonewall-go/internal/rkey"
 	"github.com/guohuiyuan/qzonewall-go/internal/store"
 
 	zero "github.com/wdvxdr1123/ZeroBot"
@@ -245,7 +245,7 @@ func (b *QQBot) handleRecall(ctx *zero.Ctx) {
 		ctx.Send(message.Text("❌ 已发布的稿件无法撤回"))
 		return
 	}
-	
+
 	if err := b.store.DeletePost(id); err != nil {
 		ctx.Send(message.Text("❌ 撤回失败: " + err.Error()))
 		return
@@ -326,7 +326,7 @@ func (b *QQBot) handleApprove(ctx *zero.Ctx) {
 	summaryBuilder.WriteString("----------------\n")
 
 	// 收集图片数据
-	var imagesData [][]byte 
+	var imagesData [][]byte
 
 	for _, post := range validPosts {
 		// A. 渲染图片
@@ -359,7 +359,9 @@ func (b *QQBot) handleApprove(ctx *zero.Ctx) {
 
 		// C. 标记为已发布
 		post.Status = model.StatusPublished
-		b.store.SavePost(post)
+		if err := b.store.SavePost(post); err != nil {
+			log.Printf("保存稿件状态失败 #%d: %v", post.ID, err)
+		}
 	}
 
 	if len(imagesData) == 0 {
@@ -376,18 +378,20 @@ func (b *QQBot) handleApprove(ctx *zero.Ctx) {
 		opts := &qzone.PublishOption{
 			ImageBytes: imagesData,
 		}
-		
+
 		// 调用发布接口
 		_, publishErr := b.qzClient.Publish(context.Background(), finalText, opts)
-		
+
 		if publishErr != nil {
 			log.Printf("发布说说失败: %v", publishErr)
 			ctx.Send(message.Text("❌ 发布到空间失败: " + publishErr.Error()))
-			
+
 			// 失败回滚
 			for _, p := range validPosts {
 				p.Status = model.StatusPending
-				b.store.SavePost(p)
+				if err := b.store.SavePost(p); err != nil {
+					log.Printf("回滚稿件状态失败 #%d: %v", p.ID, err)
+				}
 			}
 			return
 		}
@@ -395,13 +399,13 @@ func (b *QQBot) handleApprove(ctx *zero.Ctx) {
 		// 发布成功：群内反馈
 		var msgSegments message.Message
 		msgSegments = append(msgSegments, message.Text("✅ 批量过稿成功！已发布到空间：\n"+finalText))
-		
+
 		for _, img := range imagesData {
 			b64 := base64.StdEncoding.EncodeToString(img)
-			msgSegments = append(msgSegments, message.Image("base64://" + b64))
+			msgSegments = append(msgSegments, message.Image("base64://"+b64))
 		}
 		ctx.Send(msgSegments)
-		
+
 		// 通知投稿者
 		for _, p := range validPosts {
 			if p.UIN > 0 {
@@ -447,7 +451,10 @@ func (b *QQBot) handleReject(ctx *zero.Ctx) {
 
 	post.Status = model.StatusRejected
 	post.Reason = reason
-	b.store.SavePost(post)
+	if err := b.store.SavePost(post); err != nil {
+		ctx.Send(message.Text("❌ 更新稿件状态失败: " + err.Error()))
+		return
+	}
 
 	msg := fmt.Sprintf("❌ 稿件 #%d 已拒绝", id)
 	if reason != "" {
@@ -495,7 +502,7 @@ func (b *QQBot) handleDirectPublish(ctx *zero.Ctx) {
 		ctx.Send(message.Text("❌ 内容不能为空"))
 		return
 	}
-	
+
 	go func() {
 		// 修正：参数 context.Context
 		_, err := b.qzClient.Publish(context.Background(), text, nil)
@@ -629,7 +636,9 @@ func parseIDs(s string) ([]int64, error) {
 	})
 	var ids []int64
 	for _, p := range parts {
-		if p == "" { continue }
+		if p == "" {
+			continue
+		}
 		id, err := strconv.ParseInt(p, 10, 64)
 		if err != nil {
 			return nil, fmt.Errorf("编号 %s 错误", p)

@@ -41,7 +41,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("init sqlite failed: %v", err)
 	}
-	defer st.Close()
+	defer func() {
+		if err := st.Close(); err != nil {
+			log.Printf("[Main] close sqlite failed: %v", err)
+		}
+	}()
 	log.Println("[Main] sqlite ready")
 
 	censorWords := store.LoadCensorWords(cfg.Censor.Words, cfg.Censor.WordsFile)

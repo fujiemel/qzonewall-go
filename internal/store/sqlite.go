@@ -132,7 +132,9 @@ func (s *Store) ListByStatus(status model.PostStatus) ([]*model.Post, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 	return scanPosts(rows)
 }
 
@@ -152,7 +154,9 @@ func (s *Store) GetPostsByIDs(ids []int64) ([]*model.Post, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 	return scanPosts(rows)
 }
 
@@ -164,7 +168,9 @@ func (s *Store) GetApprovedPosts(limit int) ([]*model.Post, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 	return scanPosts(rows)
 }
 
@@ -176,7 +182,9 @@ func (s *Store) ListAll(limit, offset int) ([]*model.Post, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 	return scanPosts(rows)
 }
 
@@ -295,7 +303,9 @@ func LoadCensorWords(words []string, filePath string) []string {
 	}
 	if filePath != "" {
 		if f, err := os.Open(filePath); err == nil {
-			defer f.Close()
+			defer func() {
+				_ = f.Close()
+			}()
 			sc := bufio.NewScanner(f)
 			for sc.Scan() {
 				w := strings.TrimSpace(strings.ToLower(sc.Text()))
