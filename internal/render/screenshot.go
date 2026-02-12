@@ -29,7 +29,7 @@ type Renderer struct {
 	font *truetype.Font
 }
 
-func NewRenderer(fontPath string, fontSize float64) *Renderer {
+func NewRenderer() *Renderer {
 	f, err := truetype.Parse(fontData)
 	if err != nil {
 		log.Printf("[Renderer] ❌ 严重错误: 内置字体解析失败: %v", err)

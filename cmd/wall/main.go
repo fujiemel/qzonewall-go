@@ -50,11 +50,11 @@ func main() {
 	log.Printf("[Main] 加载了 %d 个敏感词", len(censorWords))
 
 	// 初始化截图渲染器
-	renderer := render.NewRenderer(cfg.Render.FontPath, cfg.Render.FontSize)
+	renderer := render.NewRenderer()
 	if renderer.Available() {
 		log.Println("[Main] 截图渲染器已启用")
 	} else {
-		log.Println("[Main] 截图渲染器未启用 (未设置字体路径)")
+		log.Println("[Main] 截图渲染器未启用")
 	}
 
 	// 启动 QQ Bot（内部启动 ZeroBot，需要先启动才能用 GetCookies）

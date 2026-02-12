@@ -13,7 +13,7 @@ import (
 func TestRenderPost(t *testing.T) {
 	// 1. 初始化渲染器
 	// 确保 internal/render/font.ttf 存在 (推荐使用 微软雅黑 msyh.ttc 改名而来)
-	r := NewRenderer("", 32.0)
+	r := NewRenderer()
 
 	if !r.Available() {
 		t.Fatal("❌ 渲染器不可用，请检查 font.ttf 是否正确嵌入")

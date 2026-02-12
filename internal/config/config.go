@@ -15,7 +15,6 @@ type Config struct {
 	Wall     WallConfig     `yaml:"wall"`
 	Database DatabaseConfig `yaml:"database"`
 	Web      WebConfig      `yaml:"web"`
-	Render   RenderConfig   `yaml:"render"`
 	Censor   CensorConfig   `yaml:"censor"`
 	Worker   WorkerConfig   `yaml:"worker"`
 	Log      LogConfig      `yaml:"log"`
@@ -74,12 +73,6 @@ type WebConfig struct {
 	Addr      string `yaml:"addr"`
 	AdminUser string `yaml:"admin_user"`
 	AdminPass string `yaml:"admin_pass"`
-}
-
-// RenderConfig 截图渲染配置
-type RenderConfig struct {
-	FontPath string  `yaml:"font_path"` // 中文字体 TTF 路径
-	FontSize float64 `yaml:"font_size"`
 }
 
 // CensorConfig 敏感词过滤配置
@@ -152,9 +145,6 @@ func (c *Config) setDefaults() {
 	}
 	if c.Web.AdminPass == "" {
 		c.Web.AdminPass = "admin123"
-	}
-	if c.Render.FontSize == 0 {
-		c.Render.FontSize = 15
 	}
 	if c.Worker.Workers == 0 {
 		c.Worker.Workers = 1
