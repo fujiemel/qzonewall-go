@@ -111,18 +111,20 @@ chmod +x deploy.sh
 docker build -t qzonewall-go .
 ```
 
-#### 推送镜像
+#### 推送镜像（可选）
+
+如需推送到 Docker Hub：
 
 ```bash
+# 标记镜像
 docker tag qzonewall-go:latest guohuiyuan/qzonewall-go:latest
+
+# 推送镜像
 docker push guohuiyuan/qzonewall-go:latest
 
-# 给同一个镜像打两个标签：1.0.0 和 latest
+# 可选：推送特定版本标签
 docker tag qzonewall-go:latest guohuiyuan/qzonewall-go:1.0.0
-# 推送具体版本
 docker push guohuiyuan/qzonewall-go:1.0.0
-# 推送 latest（和 1.0.0 指向同一个镜像）
-docker push guohuiyuan/qzonewall-go:latest
 ```
 
 #### 拉取镜像
@@ -131,47 +133,76 @@ docker push guohuiyuan/qzonewall-go:latest
 docker pull guohuiyuan/qzonewall-go:latest
 ```
 
-#### 停止并运行镜像
-
-```bash
-docker stop qzonewall && docker rm qzonewall
-docker run -d   --name qzonewall   --restart unless-stopped   -p 8081:8081   -v "$(pwd)/config.yaml:/home/appuser/config.yaml"   guohuiyuan/qzonewall-go:latest
-```
-
 #### 运行容器
 
-基本运行（使用内置默认配置）：
+##### 基本运行（使用内置默认配置）
 
 ```bash
 docker run -p 8081:8081 qzonewall-go
 ```
 
-自定义配置（推荐）：
+##### 自定义配置（推荐）
 
 ```bash
+# 创建工作目录
+mkdir wall && cd wall
+
 # 复制并修改配置文件
-cp cmd/wall/example_config.yaml my_config.yaml
-# 编辑 my_config.yaml 进行自定义配置
+cp ../config.yaml config.yaml
+# 编辑 config.yaml 进行自定义配置
 
 # 运行容器并挂载配置
-docker run -p 8081:8081 -v $(pwd)/my_config.yaml:/home/appuser/config.yaml qzonewall-go
+docker run -d --name qzonewall --restart unless-stopped \
+  -p 8081:8081 \
+  -v "$(pwd)//config.yaml://home/appuser/config.yaml" \
+  guohuiyuan/qzonewall-go:latest
+```
 
-docker run -d   --name qzonewall   --restart unless-stopped   -p 8081:8081   -v "$(pwd)/config.yaml:/home/appuser/config.yaml"   guohuiyuan/qzonewall-go:latest
+##### 持久化数据
+
+为了保存数据库和上传的文件：
+
+```bash
+# 创建工作目录
+mkdir wall && cd wall
+
+# 复制配置文件
+cp ../config.yaml config.yaml
+# 编辑 config.yaml
+
+# 如果不存在，创建空的数据库文件（防止 Docker 创建文件夹）
+touch data.db
+
+# 运行容器并挂载数据
+docker run -d --name qzonewall --restart unless-stopped \
+  -p 8081:8081 \
+  -v "$(pwd)//config.yaml://home/appuser/config.yaml" \
+  -v "$(pwd)//data.db://home/appuser/data.db" \
+  guohuiyuan/qzonewall-go:latest
+```
+
+##### 停止和重启容器
+
+```bash
+# 停止容器
+docker stop qzonewall
+
+# 重启容器
+docker restart qzonewall
+
+# 查看日志
+docker logs -f qzonewall
+
+# 完全删除容器（谨慎操作，会丢失未持久化的数据）
+docker rm qzonewall
 ```
 
 ### Docker 环境说明
 
-- **端口**: 容器内部使用 8081 端口
-- **配置**: 容器内包含默认配置，可以通过挂载覆盖
-- **数据**: SQLite 数据库文件会自动在容器内创建
-- **持久化**: 如需持久化数据，可以额外挂载数据库文件：
-
-```bash
-docker run -p 8081:8081 \
-  -v $(pwd)/my_config.yaml:/home/appuser/config.yaml \
-  -v $(pwd)/data.db:/home/appuser/data.db \
-  qzonewall-go
-```
+- **端口**: 容器内部使用 8081 端口，可通过 `-p` 参数映射到宿主机端口
+- **配置**: 容器内包含默认配置，通过挂载 `config.yaml` 可覆盖
+- **数据持久化**: SQLite 数据库和上传文件默认存储在容器内，重启容器会丢失。如需持久化，请挂载 `/home/appuser/data` 和 `/home/appuser/uploads` 目录
+- **用户**: 容器以非 root 用户 `appuser` 运行，确保安全性
 
 ## 配置说明（config.yaml）
 
