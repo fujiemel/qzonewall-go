@@ -111,6 +111,33 @@ chmod +x deploy.sh
 docker build -t qzonewall-go .
 ```
 
+#### 推送镜像
+
+```bash
+docker tag qzonewall-go:latest guohuiyuan/qzonewall-go:latest
+docker push guohuiyuan/qzonewall-go:latest
+
+# 给同一个镜像打两个标签：1.0.0 和 latest
+docker tag qzonewall-go:latest guohuiyuan/qzonewall-go:1.0.0
+# 推送具体版本
+docker push guohuiyuan/qzonewall-go:1.0.0
+# 推送 latest（和 1.0.0 指向同一个镜像）
+docker push guohuiyuan/qzonewall-go:latest
+```
+
+#### 拉取镜像
+
+```bash
+docker pull guohuiyuan/qzonewall-go:latest
+```
+
+#### 停止并运行镜像
+
+```bash
+docker stop qzonewall && docker rm qzonewall
+docker run -d   --name qzonewall   --restart unless-stopped   -p 8081:8081   -v "$(pwd)/config.yaml:/home/appuser/config.yaml"   guohuiyuan/qzonewall-go:latest
+```
+
 #### 运行容器
 
 基本运行（使用内置默认配置）：
@@ -128,6 +155,8 @@ cp cmd/wall/example_config.yaml my_config.yaml
 
 # 运行容器并挂载配置
 docker run -p 8081:8081 -v $(pwd)/my_config.yaml:/home/appuser/config.yaml qzonewall-go
+
+docker run -d   --name qzonewall   --restart unless-stopped   -p 8081:8081   -v "$(pwd)/config.yaml:/home/appuser/config.yaml"   guohuiyuan/qzonewall-go:latest
 ```
 
 ### Docker 环境说明
@@ -177,6 +206,7 @@ docker run -p 8081:8081 \
 - `enable`: 是否启用 Web
 - `addr`: 监听地址（例如 `:8081`）
 - `admin_user` / `admin_pass`: 管理后台初始账号
+- `prefix`: Web 服务的前缀路径（默认为 "/wall"），用于在二级路径下部署。当前版本中，此配置硬编码在代码中，如需修改，请编辑 `internal/web/server.go` 文件中的 `prefix` 字段为空字符串 ""（根路径）或其他路径，并重启服务。
 
 ### `censor`
 
