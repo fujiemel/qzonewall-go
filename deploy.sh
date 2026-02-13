@@ -31,7 +31,7 @@ docker pull guohuiyuan/qzonewall-go:latest
 if [ ! -d "data" ]; then
     echo "📁 创建数据目录 data/ ..."
     mkdir -p data
-    # 给该目录赋予宽泛权限，确保容器内非 root 用户能写入
+    # 给该目录赋予宽泛权限，确保容器内非 root 用户能写入，解决 WAL 错误
     chmod 777 data
 fi
 
@@ -104,7 +104,7 @@ docker rm "$CONTAINER_NAME" >/dev/null 2>&1 || true
 # 7. 运行新容器
 echo "🏃 启动新容器..."
 
-# 注意：这里挂载的是 data 目录，而不是 data.db 文件
+# 注意：这里挂载的是 data 目录，解决权限问题
 docker run -d \
   --name "$CONTAINER_NAME" \
   --restart unless-stopped \
@@ -113,23 +113,28 @@ docker run -d \
   -v "$(pwd)/data://home/appuser/data" \
   guohuiyuan/qzonewall-go:latest
 
-# 8. 检查状态
+# 8. 检查状态并输出提示
 echo "⏳ 等待初始化 (3秒)..."
 sleep 3
 
 if docker ps | grep -q "$CONTAINER_NAME"; then
-    echo "✅ 部署成功！日志如下："
-    docker logs --tail 5 $CONTAINER_NAME
-    
     echo ""
-    echo "--------------------------------------------------------"
-    echo "🔔  重要提示："
-    echo "    所有的配置和数据都在 'wall' 目录中。"
-    echo "    如果你需要修改配置文件或查看数据，请务必先进入目录："
-    echo ""
-    echo "    👉  cd wall"
-    echo "--------------------------------------------------------"
+    echo "✅ 部署成功！"
+    echo "------------------------------------------------"
+    echo "📂 工作目录: $(pwd)"
+    echo "🌐 管理后台: http://localhost:8081"
+    echo "👤 默认账号: admin / admin123 (请在配置中修改)"
+    echo "------------------------------------------------"
+    echo "📊 查看日志: docker logs -f $CONTAINER_NAME"
+    echo "🛑 停止服务: docker stop $CONTAINER_NAME"
+    echo "🔄 重启服务: docker restart $CONTAINER_NAME"
+    echo "------------------------------------------------"
+    echo "⚠️  提示：如果你在新的终端操作，请先进入目录："
+    echo "    cd wall"
 else
-    echo "❌ 启动失败，查看日志："
-    docker logs $CONTAINER_NAME
+    echo ""
+    echo "❌ 容器启动失败！"
+    echo "请运行以下命令查看错误日志："
+    echo "docker logs $CONTAINER_NAME"
+    exit 1
 fi
