@@ -170,14 +170,15 @@ mkdir wall && cd wall
 cp ../config.yaml config.yaml
 # 编辑 config.yaml
 
-# 如果不存在，创建空的数据库文件（防止 Docker 创建文件夹）
-touch data.db
+# 创建数据目录
+mkdir -p data
+chmod 777 data
 
-# 运行容器并挂载数据
+# 运行容器并挂载数据目录
 docker run -d --name qzonewall --restart unless-stopped \
   -p 8081:8081 \
   -v "$(pwd)//config.yaml://home/appuser/config.yaml" \
-  -v "$(pwd)//data.db://home/appuser/data.db" \
+  -v "$(pwd)//data://home/appuser/data" \
   guohuiyuan/qzonewall-go:latest
 ```
 

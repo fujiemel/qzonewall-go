@@ -39,7 +39,7 @@ wall:
 
 # 数据库
 database:
-  path: "data.db"
+  path: "data/data.db"
 
 # Web 管理后台
 web:
