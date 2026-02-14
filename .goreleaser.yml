@@ -1,63 +1,86 @@
 version: 2
 project_name: qzonewall-go
-
 env:
   - GO111MODULE=on
-
 before:
   hooks:
     - go mod tidy
     - go generate ./...
     - go install github.com/tc-hib/go-winres@latest
     - go-winres make --in ./winres/winres.json --out ./cmd/wall/rsrc
-
 builds:
-  - id: linux
-    main: ./cmd/wall
-    binary: qzonewall
+  - id: nowin
     env:
       - CGO_ENABLED=0
+      - GO111MODULE=on
     goos:
       - linux
     goarch:
+      - 386
       - amd64
+      - arm
       - arm64
+    goarm:
+      - 6
+      - 7
+    main: ./cmd/wall
+    binary: qzonewall
+    mod_timestamp: "{{ .CommitTimestamp }}"
     flags:
       - -trimpath
     ldflags:
       - -s -w
-
-  - id: windows
-    main: ./cmd/wall
-    binary: qzonewall
+  - id: win
     env:
       - CGO_ENABLED=0
+      - GO111MODULE=on
     goos:
       - windows
     goarch:
       - amd64
+    main: ./cmd/wall
+    binary: qzonewall
+    mod_timestamp: "{{ .CommitTimestamp }}"
     flags:
       - -trimpath
     ldflags:
       - -s -w
-
-archives:
-  - id: default
-    builds:
-      - linux
-      - windows
-    name_template: "qzonewall-go_{{ .Os }}_{{ .Arch }}"
-    format_overrides:
-      - goos: windows
-        formats: [zip]
 
 checksum:
   name_template: "qzonewall-go_checksums.txt"
-
 changelog:
   sort: asc
   filters:
     exclude:
       - "^docs:"
       - "^test:"
-      - "^chore:"
+      - fix typo
+      - Merge pull request
+      - Merge branch
+      - Merge remote-tracking
+      - go mod tidy
+
+archives:
+  - id: nowin
+    builds:
+      - nowin
+    name_template: "qzonewall-go_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+    format_overrides:
+      - goos: windows
+        formats: zip
+  - id: win
+    builds:
+      - win
+    name_template: "qzonewall-go_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+    format_overrides:
+      - goos: windows
+        formats: zip
+
+nfpms:
+  - license: MIT
+    homepage: https://github.com/guohuiyuan/qzonewall-go
+    file_name_template: "qzonewall-go_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+    formats:
+      - deb
+      - rpm
+    maintainer: guohuiyuan
