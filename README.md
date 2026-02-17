@@ -1,11 +1,11 @@
-﻿# QzoneWall-Go
+# QzoneWall-Go
 
 一个给 QQ 群用的「表白墙/投稿墙」服务。
 
 它把投稿收集、审核、渲染截图、发布到 QQ 空间这几件事串在一起：
 - 群内可以投稿、匿名投稿、撤稿
 - 管理员可以看稿、过稿、拒稿、批量处理
-- Web 后台可以审核、扫码登录、看发布状态
+- Web 后台可以审核、删除、扫码登录、看发布状态
 - Worker 会按频率限制自动发布到 QQ 空间
 
 项目基于 Go，数据存 SQLite，机器人侧使用 ZeroBot（对接 NapCat WebSocket），QQ 空间接口由 `qzone-go` 提供。
@@ -248,6 +248,7 @@ docker run -p 8081:8081 qzonewall-go
 - `/看稿 <编号>`
 - `/过稿 <编号>`（支持范围/批量，如 `1-4` 或 `1,2,5`）
 - `/拒稿 <编号> [理由]`
+- `/删稿 <编号>`
 - `/待审核`
 - `/发说说 <内容>`
 - `/扫码`
@@ -267,6 +268,7 @@ docker run -p 8081:8081 qzonewall-go
 - `POST /api/submit`
 - `POST /api/approve`
 - `POST /api/reject`
+- `POST /api/delete`
 - `POST /api/approve/batch`
 - `POST /api/reject/batch`
 - `GET /api/qrcode`

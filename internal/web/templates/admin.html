@@ -166,8 +166,10 @@
   .post-actions { display: flex; gap: 8px; }
   .btn-approve { background: #22c55e; color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
   .btn-reject { background: #ef4444; color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .btn-delete { background: #838383; color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
   .btn-approve:hover { background: #16a34a; }
   .btn-reject:hover { background: #dc2626; }
+  .btn-delete:hover { background: #636363; }
   .empty { text-align: center; padding: 40px; color: #999; font-size: 16px; }
 
   /* QR Modal */
@@ -342,12 +344,13 @@
       </div>
       {{end}}
       {{if .Reason}}<div style="color:#999;font-size:13px;margin-bottom:8px">理由: {{.Reason}}</div>{{end}}
-      {{if eq (printf "%s" .Status) "pending"}}
       <div class="post-actions">
+        {{if eq (printf "%s" .Status) "pending"}}
         <button class="btn-approve" onclick="approvePost({{.ID}})">✓ 通过</button>
         <button class="btn-reject" onclick="rejectPost({{.ID}})">✗ 拒绝</button>
+        {{end}}
+        <button class="btn-delete" onclick="deletePost({{.ID}})">🗑️ 删除</button>
       </div>
-      {{end}}
     </div>
     {{end}}
   {{else}}
@@ -396,6 +399,29 @@ async function rejectPost(id) {
       location.reload();
     } else {
       alert(data.message);
+    }
+  } catch(e) { alert('操作失败'); }
+}
+
+async function deletePost(id) {
+  if (!confirm('确认永久删除稿件 #' + id + '？此操作不可恢复。')) return;
+  try {
+    const resp = await fetch('{{.Root}}/api/delete', {
+      method: 'POST',
+      headers: {'Content-Type':'application/x-www-form-urlencoded'},
+      body: 'id=' + id
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      // 不刷新页面，直接移除 DOM
+      const postCard = document.getElementById('post-' + id);
+      if (postCard) {
+        postCard.style.transition = 'opacity 0.5s ease';
+        postCard.style.opacity = '0';
+        setTimeout(() => postCard.remove(), 500);
+      }
+    } else {
+      alert('删除失败: ' + data.message);
     }
   } catch(e) { alert('操作失败'); }
 }

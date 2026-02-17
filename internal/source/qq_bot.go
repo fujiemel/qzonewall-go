@@ -118,6 +118,9 @@ func (b *QQBot) registerCommands() {
 	b.engine.OnCommand("拒稿", zero.SuperUserPermission).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		b.handleReject(ctx)
 	})
+	b.engine.OnCommand("删稿", zero.SuperUserPermission).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+		b.handleDelete(ctx)
+	})
 	b.engine.OnCommand("待审核", zero.SuperUserPermission).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		b.handleListPending(ctx)
 	})
@@ -444,6 +447,31 @@ func (b *QQBot) handleReject(ctx *zero.Ctx) {
 			ctx.SendPrivateMessage(post.UIN, message.Text(notifyMsg))
 		}
 	}
+}
+
+// handleDelete 删稿
+func (b *QQBot) handleDelete(ctx *zero.Ctx) {
+	args := getArgs(ctx)
+	if args == "" {
+		ctx.Send(message.Text("用法: /删稿 <编号>"))
+		return
+	}
+	id, err := strconv.ParseInt(args, 10, 64)
+	if err != nil {
+		ctx.Send(message.Text("❌ 编号格式不正确"))
+		return
+	}
+	post, err := b.store.GetPost(id)
+	if err != nil || post == nil {
+		ctx.Send(message.Text(fmt.Sprintf("❌ 稿件 #%d 不存在", id)))
+		return
+	}
+
+	if err := b.store.DeletePost(id); err != nil {
+		ctx.Send(message.Text("❌ 删除失败: " + err.Error()))
+		return
+	}
+	ctx.Send(message.Text(fmt.Sprintf("✅ 稿件 #%d 已删除", id)))
 }
 
 // handleListPending 待审核列表

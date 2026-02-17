@@ -142,6 +142,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc(s.url("/api/submit"), s.handleAPISubmit)
 	mux.HandleFunc(s.url("/api/approve"), s.handleAPIApprove)
 	mux.HandleFunc(s.url("/api/reject"), s.handleAPIReject)
+	mux.HandleFunc(s.url("/api/delete"), s.handleAPIDelete) // 新增删除接口
 	mux.HandleFunc(s.url("/api/approve/batch"), s.handleAPIBatchApprove)
 	mux.HandleFunc(s.url("/api/reject/batch"), s.handleAPIBatchReject)
 	mux.HandleFunc(s.url("/api/qrcode"), s.handleAPIQRCode)
@@ -493,6 +494,38 @@ func (s *Server) handleAPIReject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonResp(w, 200, true, fmt.Sprintf("稿件 #%d 已拒绝", id))
+}
+
+func (s *Server) handleAPIDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonResp(w, 405, false, "仅支持 POST")
+		return
+	}
+	account := s.currentAccount(r)
+	if account == nil || !account.IsAdmin() {
+		jsonResp(w, 403, false, "无权限")
+		return
+	}
+
+	idStr := r.FormValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		jsonResp(w, 400, false, "编号格式错误")
+		return
+	}
+
+	// 在删除前，可以选择性地检查稿件是否存在
+	post, err := s.store.GetPost(id)
+	if err != nil || post == nil {
+		jsonResp(w, 404, false, "稿件不存在或已被删除")
+		return
+	}
+
+	if err := s.store.DeletePost(id); err != nil {
+		jsonResp(w, 500, false, "删除失败: "+err.Error())
+		return
+	}
+	jsonResp(w, 200, true, fmt.Sprintf("稿件 #%d 已删除", id))
 }
 
 func (s *Server) handleAPIBatchApprove(w http.ResponseWriter, r *http.Request) {
