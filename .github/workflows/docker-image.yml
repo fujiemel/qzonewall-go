@@ -20,6 +20,6 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag jingjinyi/qzonewall-go:${{ github.sha }}
+      run: docker build . --file Dockerfile --tag jinyijiang/qzonewall-go:${{ github.sha }}
     - name: Push the Docker image
-      run: docker push jingjinyi/qzonewall-go:${{ github.sha }}
+      run: docker push jinyijiang/qzonewall-go:${{ github.sha }}
