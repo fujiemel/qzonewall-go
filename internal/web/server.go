@@ -879,7 +879,7 @@ func (s *Server) handleAPIConfig(w http.ResponseWriter, r *http.Request) {
 			jsonResp(w, 400, false, "读取请求体失败")
 			return
 		}
-		defer r.Body.Close()
+		defer func() { _ = r.Body.Close() }()
 
 		var newCfg config.Config
 		if err := json.Unmarshal(body, &newCfg); err != nil {

@@ -291,7 +291,7 @@ func (b *QQBot) handleApprove(ctx *zero.Ctx) {
 	ctx.Send(message.Text(fmt.Sprintf("⏳ 正在处理 %d 条稿件，合并发布中...", len(validPosts))))
 
 	var summaryBuilder strings.Builder
-	summaryBuilder.WriteString(fmt.Sprintf("【表白墙更新】 %s\n", time.Now().Format("01/02")))
+	fmt.Fprintf(&summaryBuilder, "【表白墙更新】 %s\n", time.Now().Format("01/02"))
 	summaryBuilder.WriteString("----------------\n")
 
 	// 收集图片数据
@@ -319,12 +319,12 @@ func (b *QQBot) handleApprove(ctx *zero.Ctx) {
 		// B. 拼接摘要
 		content := []rune(post.Text)
 		if len(content) > 20 {
-			summaryBuilder.WriteString(fmt.Sprintf("#%d: %s...\n", post.ID, string(content[:20])))
+			fmt.Fprintf(&summaryBuilder, "#%d: %s...\n", post.ID, string(content[:20]))
 		} else {
 			if post.Text == "" {
-				summaryBuilder.WriteString(fmt.Sprintf("#%d: [图片]\n", post.ID))
+				fmt.Fprintf(&summaryBuilder, "#%d: [图片]\n", post.ID)
 			} else {
-				summaryBuilder.WriteString(fmt.Sprintf("#%d: %s\n", post.ID, post.Text))
+				fmt.Fprintf(&summaryBuilder, "#%d: %s\n", post.ID, post.Text)
 			}
 		}
 
