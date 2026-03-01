@@ -38,6 +38,8 @@ var templateFS embed.FS
 type Server struct {
 	cfg       config.WebConfig
 	wallCfg   config.WallConfig
+	fullCfg   *config.Config
+	cfgPath   string
 	store     *store.Store
 	qzClient  *qzone.Client
 	renderer  *render.Renderer
@@ -57,19 +59,21 @@ type Server struct {
 
 // NewServer 创建 Web 服务实例。
 func NewServer(
-	cfg config.WebConfig,
-	wallCfg config.WallConfig,
+	fullCfg *config.Config,
+	cfgPath string,
 	st *store.Store,
 	qzClient *qzone.Client,
 	renderer *render.Renderer,
 ) *Server {
 	return &Server{
-		cfg:       cfg,
-		wallCfg:   wallCfg,
+		cfg:       fullCfg.Web,
+		wallCfg:   fullCfg.Wall,
+		fullCfg:   fullCfg,
+		cfgPath:   cfgPath,
 		store:     st,
 		qzClient:  qzClient,
 		renderer:  renderer,
-		uploadDir: "uploads",
+		uploadDir: "data/uploads",
 		// [配置] 在这里设置你的二级路径前缀，例如 "/wall"
 		// 如果在根目录运行，请保持为空字符串 ""
 		prefix: "/wall",
@@ -149,6 +153,8 @@ func (s *Server) Start() error {
 	mux.HandleFunc(s.url("/api/health"), s.handleAPIHealth)
 	mux.HandleFunc(s.url("/api/qzone/status"), s.handleAPIQzoneStatus)
 	mux.HandleFunc(s.url("/api/qzone/refresh"), s.handleAPIQzoneRefresh)
+	mux.HandleFunc(s.url("/api/config"), s.handleAPIConfig)
+	mux.HandleFunc(s.url("/api/change-password"), s.handleAPIChangePassword)
 
 	// [修复] 静态资源处理
 	// 1. 拼接前缀，例如 "/wall" + "/uploads" -> "/wall/uploads"
@@ -199,9 +205,11 @@ func (s *Server) initAdmin() error {
 	if count > 0 {
 		return nil
 	}
+	// 首次运行，使用默认管理员账号 admin / admin123
 	salt := randomHex(16)
-	hash := hashPassword(s.cfg.AdminPass, salt)
-	return s.store.CreateAccount(s.cfg.AdminUser, hash, salt, "admin")
+	hash := hashPassword("admin123", salt)
+	log.Println("[Web] 初始化默认管理员: admin / admin123，请及时在管理后台修改密码")
+	return s.store.CreateAccount("admin", hash, salt, "admin")
 }
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
@@ -836,6 +844,103 @@ func (s *Server) handleAPIQzoneRefresh(w http.ResponseWriter, r *http.Request) {
 	} else {
 		jsonResp(w, 200, false, "未能从任何 Bot 获取到有效 Cookie")
 	}
+}
+
+func (s *Server) handleAPIConfig(w http.ResponseWriter, r *http.Request) {
+	account := s.currentAccount(r)
+	if account == nil || !account.IsAdmin() {
+		jsonResp(w, 403, false, "无权限")
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		// 支持热加载：?reload=true 时从文件重新读取配置
+		if r.URL.Query().Get("reload") == "true" {
+			newCfg, err := config.Load(s.cfgPath)
+			if err != nil {
+				jsonResp(w, 500, false, "重新加载配置失败: "+err.Error())
+				return
+			}
+			*s.fullCfg = *newCfg
+			s.cfg = newCfg.Web
+			s.wallCfg = newCfg.Wall
+			log.Printf("[Web] 配置已从文件热加载: %s", s.cfgPath)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"ok":     true,
+			"config": s.fullCfg,
+		})
+
+	case http.MethodPost:
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			jsonResp(w, 400, false, "读取请求体失败")
+			return
+		}
+		defer r.Body.Close()
+
+		var newCfg config.Config
+		if err := json.Unmarshal(body, &newCfg); err != nil {
+			jsonResp(w, 400, false, "JSON 格式错误: "+err.Error())
+			return
+		}
+
+		// 保存到文件
+		if err := newCfg.Save(s.cfgPath); err != nil {
+			jsonResp(w, 500, false, "保存配置失败: "+err.Error())
+			return
+		}
+
+		// 更新内存中的配置
+		*s.fullCfg = newCfg
+		s.cfg = newCfg.Web
+		s.wallCfg = newCfg.Wall
+
+		jsonResp(w, 200, true, "配置已保存并生效。Bot/WS/Worker 等配置修改需重启后生效")
+
+	default:
+		jsonResp(w, 405, false, "仅支持 GET/POST")
+	}
+}
+
+func (s *Server) handleAPIChangePassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonResp(w, 405, false, "仅支持 POST")
+		return
+	}
+	account := s.currentAccount(r)
+	if account == nil || !account.IsAdmin() {
+		jsonResp(w, 403, false, "无权限")
+		return
+	}
+
+	oldPass := r.FormValue("old_password")
+	newPass := r.FormValue("new_password")
+	if newPass == "" {
+		jsonResp(w, 400, false, "新密码不能为空")
+		return
+	}
+	if len(newPass) < 6 {
+		jsonResp(w, 400, false, "新密码至少6位")
+		return
+	}
+
+	// 验证旧密码
+	if hashPassword(oldPass, account.Salt) != account.PasswordHash {
+		jsonResp(w, 400, false, "旧密码错误")
+		return
+	}
+
+	newSalt := randomHex(16)
+	newHash := hashPassword(newPass, newSalt)
+	if err := s.store.UpdateAccountPassword(account.Username, newHash, newSalt); err != nil {
+		jsonResp(w, 500, false, "修改密码失败")
+		return
+	}
+
+	jsonResp(w, 200, true, "密码修改成功")
 }
 
 func (s *Server) handleIcon(w http.ResponseWriter, r *http.Request) {

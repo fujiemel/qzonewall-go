@@ -1,99 +1,125 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
-
-	"gopkg.in/yaml.v3"
 )
+
+// Duration 是 time.Duration 的包装类型，支持 JSON 字符串序列化（如 "10s"）
+type Duration struct {
+	time.Duration
+}
+
+func (d Duration) MarshalJSON() ([]byte, error) {
+	return json.Marshal(d.String())
+}
+
+func (d *Duration) UnmarshalJSON(b []byte) error {
+	var v interface{}
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+	switch val := v.(type) {
+	case string:
+		dur, err := time.ParseDuration(val)
+		if err != nil {
+			return err
+		}
+		d.Duration = dur
+	case float64:
+		d.Duration = time.Duration(int64(val))
+	default:
+		return fmt.Errorf("invalid duration type: %T", v)
+	}
+	return nil
+}
 
 // Config 应用总配置
 type Config struct {
-	Qzone    QzoneConfig    `yaml:"qzone"`
-	Bot      BotConfig      `yaml:"bot"`
-	Wall     WallConfig     `yaml:"wall"`
-	Database DatabaseConfig `yaml:"database"`
-	Web      WebConfig      `yaml:"web"`
-	Censor   CensorConfig   `yaml:"censor"`
-	Worker   WorkerConfig   `yaml:"worker"`
-	Log      LogConfig      `yaml:"log"`
+	Qzone    QzoneConfig    `json:"qzone"`
+	Bot      BotConfig      `json:"bot"`
+	Wall     WallConfig     `json:"wall"`
+	Database DatabaseConfig `json:"database"`
+	Web      WebConfig      `json:"web"`
+	Censor   CensorConfig   `json:"censor"`
+	Worker   WorkerConfig   `json:"worker"`
+	Log      LogConfig      `json:"log"`
 }
 
 // QzoneConfig QQ空间账号配置
 type QzoneConfig struct {
-	KeepAlive time.Duration `yaml:"keep_alive"`
-	MaxRetry  int           `yaml:"max_retry"`
-	Timeout   time.Duration `yaml:"timeout"`
+	KeepAlive Duration `json:"keep_alive"`
+	MaxRetry  int      `json:"max_retry"`
+	Timeout   Duration `json:"timeout"`
 }
 
 // BotConfig QQ机器人配置
 type BotConfig struct {
-	Zero        ZeroBotConfig `yaml:"zero"`
-	WS          []WSConfig    `yaml:"ws"`
-	ManageGroup int64         `yaml:"manage_group"`
+	Zero        ZeroBotConfig `json:"zero"`
+	WS          []WSConfig    `json:"ws"`
+	ManageGroup int64         `json:"manage_group"`
 }
 
 // ZeroBotConfig ZeroBot 核心配置
 type ZeroBotConfig struct {
-	NickName       []string `yaml:"nickname" json:"nickname"`
-	CommandPrefix  string   `yaml:"command_prefix" json:"command_prefix"`
-	SuperUsers     []int64  `yaml:"super_users" json:"super_users"`
-	RingLen        uint     `yaml:"ring_len" json:"ring_len"`
-	Latency        int64    `yaml:"latency" json:"latency"`                   // 纳秒
-	MaxProcessTime int64    `yaml:"max_process_time" json:"max_process_time"` // 纳秒
+	NickName       []string `json:"nickname"`
+	CommandPrefix  string   `json:"command_prefix"`
+	SuperUsers     []int64  `json:"super_users"`
+	RingLen        uint     `json:"ring_len"`
+	Latency        int64    `json:"latency"`
+	MaxProcessTime int64    `json:"max_process_time"`
 }
 
 // WSConfig WebSocket 连接配置
 type WSConfig struct {
-	Url         string `yaml:"url" json:"Url"`
-	AccessToken string `yaml:"access_token" json:"AccessToken"`
+	Url         string `json:"url"`
+	AccessToken string `json:"access_token"`
 }
 
 // WallConfig 表白墙配置
 type WallConfig struct {
-	ShowAuthor   bool          `yaml:"show_author"`
-	AnonDefault  bool          `yaml:"anon_default"`
-	MaxImages    int           `yaml:"max_images"`
-	MaxTextLen   int           `yaml:"max_text_len"`
-	PublishDelay time.Duration `yaml:"publish_delay"`
+	ShowAuthor   bool     `json:"show_author"`
+	AnonDefault  bool     `json:"anon_default"`
+	MaxImages    int      `json:"max_images"`
+	MaxTextLen   int      `json:"max_text_len"`
+	PublishDelay Duration `json:"publish_delay"`
 }
 
 // DatabaseConfig 数据库配置
 type DatabaseConfig struct {
-	Path string `yaml:"path"`
+	Path string `json:"path"`
 }
 
 // WebConfig 网页配置
 type WebConfig struct {
-	Enable    bool   `yaml:"enable"`
-	Addr      string `yaml:"addr"`
-	AdminUser string `yaml:"admin_user"`
-	AdminPass string `yaml:"admin_pass"`
+	Enable bool   `json:"enable"`
+	Addr   string `json:"addr"`
 }
 
 // CensorConfig 敏感词过滤配置
 type CensorConfig struct {
-	Enable    bool     `yaml:"enable"`
-	Words     []string `yaml:"words"`
-	WordsFile string   `yaml:"words_file"`
+	Enable    bool     `json:"enable"`
+	Words     []string `json:"words"`
+	WordsFile string   `json:"words_file"`
 }
 
 // WorkerConfig 任务调度配置
 type WorkerConfig struct {
-	Workers      int           `yaml:"workers"`
-	RetryCount   int           `yaml:"retry_count"`
-	RetryDelay   time.Duration `yaml:"retry_delay"`
-	RateLimit    time.Duration `yaml:"rate_limit"`
-	PollInterval time.Duration `yaml:"poll_interval"`
+	Workers      int      `json:"workers"`
+	RetryCount   int      `json:"retry_count"`
+	RetryDelay   Duration `json:"retry_delay"`
+	RateLimit    Duration `json:"rate_limit"`
+	PollInterval Duration `json:"poll_interval"`
 }
 
 // LogConfig 日志配置
 type LogConfig struct {
-	Level string `yaml:"level"`
+	Level string `json:"level"`
 }
 
-// Load 加载配置文件
+// Load 加载 JSON 配置文件
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -101,7 +127,7 @@ func Load(path string) (*Config, error) {
 	}
 
 	cfg := &Config{}
-	if err = yaml.Unmarshal(data, cfg); err != nil {
+	if err = json.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
 
@@ -109,15 +135,27 @@ func Load(path string) (*Config, error) {
 	return cfg, nil
 }
 
+// Save 将配置序列化为 JSON 写入文件
+func (c *Config) Save(path string) error {
+	data, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal config: %w", err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("write config file: %w", err)
+	}
+	return nil
+}
+
 func (c *Config) setDefaults() {
-	if c.Qzone.KeepAlive == 0 {
-		c.Qzone.KeepAlive = 30 * time.Minute
+	if c.Qzone.KeepAlive.Duration == 0 {
+		c.Qzone.KeepAlive.Duration = 30 * time.Minute
 	}
 	if c.Qzone.MaxRetry == 0 {
 		c.Qzone.MaxRetry = 2
 	}
-	if c.Qzone.Timeout == 0 {
-		c.Qzone.Timeout = 30 * time.Second
+	if c.Qzone.Timeout.Duration == 0 {
+		c.Qzone.Timeout.Duration = 30 * time.Second
 	}
 	if c.Bot.Zero.CommandPrefix == "" {
 		c.Bot.Zero.CommandPrefix = "/"
@@ -132,16 +170,10 @@ func (c *Config) setDefaults() {
 		c.Wall.MaxTextLen = 2000
 	}
 	if c.Database.Path == "" {
-		c.Database.Path = "data.db"
+		c.Database.Path = "data/data.db"
 	}
 	if c.Web.Addr == "" {
 		c.Web.Addr = ":8080"
-	}
-	if c.Web.AdminUser == "" {
-		c.Web.AdminUser = "admin"
-	}
-	if c.Web.AdminPass == "" {
-		c.Web.AdminPass = "admin123"
 	}
 	if c.Worker.Workers == 0 {
 		c.Worker.Workers = 1
@@ -149,14 +181,14 @@ func (c *Config) setDefaults() {
 	if c.Worker.RetryCount == 0 {
 		c.Worker.RetryCount = 3
 	}
-	if c.Worker.RetryDelay == 0 {
-		c.Worker.RetryDelay = 5 * time.Second
+	if c.Worker.RetryDelay.Duration == 0 {
+		c.Worker.RetryDelay.Duration = 5 * time.Second
 	}
-	if c.Worker.RateLimit == 0 {
-		c.Worker.RateLimit = 30 * time.Second
+	if c.Worker.RateLimit.Duration == 0 {
+		c.Worker.RateLimit.Duration = 30 * time.Second
 	}
-	if c.Worker.PollInterval == 0 {
-		c.Worker.PollInterval = 5 * time.Second
+	if c.Worker.PollInterval.Duration == 0 {
+		c.Worker.PollInterval.Duration = 5 * time.Second
 	}
 	if c.Log.Level == "" {
 		c.Log.Level = "info"

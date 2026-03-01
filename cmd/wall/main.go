@@ -1,13 +1,10 @@
 package main
 
 import (
-	"crypto/rand"
 	_ "embed"
-	"encoding/hex"
 	"log"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	qzone "github.com/guohuiyuan/qzone-go"
@@ -19,23 +16,13 @@ import (
 	"github.com/guohuiyuan/qzonewall-go/internal/web"
 )
 
-//go:embed example_config.yaml
+//go:embed example_config.json
 var exampleConfig string
-
-// generateRandomPassword 生成一个16字符的随机密码
-func generateRandomPassword() string {
-	bytes := make([]byte, 8) // 8字节 = 16个十六进制字符
-	if _, err := rand.Read(bytes); err != nil {
-		// 如果随机生成失败，使用默认密码
-		return "admin123"
-	}
-	return hex.EncodeToString(bytes)
-}
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	cfgPath := "config.yaml"
+	cfgPath := "data/config.json"
 	for i := 1; i < len(os.Args); i++ {
 		switch os.Args[i] {
 		case "--config", "-c":
@@ -48,15 +35,18 @@ func main() {
 		}
 	}
 
+	// 确保 data 目录存在
+	if err := os.MkdirAll("data/uploads", 0755); err != nil {
+		log.Fatalf("create data directory failed: %v", err)
+	}
+
 	// 检查配置文件是否存在，如果不存在则生成示例配置
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
-		randomPass := generateRandomPassword()
-		configContent := strings.Replace(exampleConfig, `admin_pass: ""`, `admin_pass: "`+randomPass+`"`, 1)
-		if err := os.WriteFile(cfgPath, []byte(configContent), 0644); err != nil {
+		if err := os.WriteFile(cfgPath, []byte(exampleConfig), 0644); err != nil {
 			log.Fatalf("create example config failed: %v", err)
 		}
-		log.Printf("[Main] example config.yaml generated with random password: %s, please edit it and restart", randomPass)
-		os.Exit(0)
+		log.Printf("[Main] 已生成示例配置文件 %s", cfgPath)
+		log.Println("[Main] 默认管理员账号: admin / admin123，可在管理后台「系统设置」中修改配置和密码")
 	}
 
 	cfg, err := config.Load(cfgPath)
@@ -97,7 +87,7 @@ func main() {
 	initCookie := "uin=o1;skey=@bootstrap;p_skey=bootstrap"
 
 	qzClient, err := qzone.NewClient(initCookie,
-		qzone.WithTimeout(cfg.Qzone.Timeout),
+		qzone.WithTimeout(cfg.Qzone.Timeout.Duration),
 		qzone.WithMaxRetry(cfg.Qzone.MaxRetry),
 		qzone.WithOnSessionExpired(task.RefreshCookie(cfg.Bot)),
 	)
@@ -140,7 +130,7 @@ func main() {
 	defer keepAlive.Stop()
 
 	if cfg.Web.Enable {
-		webServer := web.NewServer(cfg.Web, cfg.Wall, st, qzClient, renderer)
+		webServer := web.NewServer(cfg, cfgPath, st, qzClient, renderer)
 		go func() {
 			if err := webServer.Start(); err != nil {
 				log.Printf("[Main] web server stopped: %v", err)

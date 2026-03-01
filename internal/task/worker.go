@@ -57,7 +57,7 @@ func (w *Worker) Start() {
 		w.wg.Add(1)
 		go w.run(i)
 	}
-	log.Printf("[Worker] 启动 %d 个工作协程，轮询间隔=%v", w.cfg.Workers, w.cfg.PollInterval)
+	log.Printf("[Worker] 启动 %d 个工作协程，轮询间隔=%v", w.cfg.Workers, w.cfg.PollInterval.Duration)
 }
 
 // Stop 优雅停止。
@@ -71,7 +71,7 @@ func (w *Worker) run(id int) {
 	defer w.wg.Done()
 	log.Printf("[Worker-%d] started polling", id)
 
-	ticker := time.NewTicker(w.cfg.PollInterval)
+	ticker := time.NewTicker(w.cfg.PollInterval.Duration)
 	defer ticker.Stop()
 
 	for {
@@ -107,7 +107,7 @@ func (w *Worker) pollAndPublish(workerID int) {
 	for retry := 0; retry <= w.cfg.RetryCount; retry++ {
 		if retry > 0 {
 			log.Printf("[Worker-%d] 重试第 %d 次...", workerID, retry)
-			time.Sleep(w.cfg.RetryDelay)
+			time.Sleep(w.cfg.RetryDelay.Duration)
 		}
 
 		err := w.publish(post)
@@ -217,8 +217,8 @@ func (w *Worker) waitRateLimit() {
 		return
 	}
 	elapsed := time.Since(last)
-	if elapsed < w.cfg.RateLimit {
-		wait := w.cfg.RateLimit - elapsed
+	if elapsed < w.cfg.RateLimit.Duration {
+		wait := w.cfg.RateLimit.Duration - elapsed
 		log.Printf("[Worker] 频率限制，等待 %v", wait)
 		time.Sleep(wait)
 	}

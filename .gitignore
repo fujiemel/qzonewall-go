@@ -1,9 +1,7 @@
-config.yaml
+data/
 cookie.txt
-uploads/
-data.db*
 *.exe
 *.jpg
 qrcode.png
-config.yaml.bak
 wall*
+config.json

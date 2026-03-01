@@ -284,7 +284,27 @@
         <span class="dot red"></span>QQ空间未登录
       {{end}}
     </div>
-    <button class="btn-sm btn-primary" onclick="showQRModal()">扫码登录</button>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn-sm btn-primary" onclick="toggleSettings()" id="settingsToggle">⚙️ 系统设置</button>
+      <button class="btn-sm btn-primary" onclick="showQRModal()">扫码登录</button>
+    </div>
+  </div>
+
+  <!-- 系统设置面板 -->
+  <div id="settingsPanel" style="display:none; margin-bottom:16px;">
+    <div style="background:white; border-radius:12px; padding:20px; border:1px solid #e2e8f0; box-shadow:0 4px 14px rgba(15,23,42,0.06);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h3 style="font-size:16px; color:#0f172a;">⚙️ 系统设置</h3>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-sm" style="background:#f0f0f0" onclick="loadConfig()">🔄 重新加载</button>
+          <button class="btn-sm btn-primary" onclick="saveConfig()">💾 保存配置</button>
+        </div>
+      </div>
+      <div id="configMsg" style="display:none; padding:8px 12px; border-radius:6px; margin-bottom:12px; font-size:13px;"></div>
+      <div id="configForm" style="display:grid; gap:16px;">
+        <div style="text-align:center; color:#94a3b8; padding:20px;">加载中...</div>
+      </div>
+    </div>
   </div>
 
   <div class="status-bar">
@@ -597,6 +617,186 @@ function startQRPoll() {
       }
     } catch(e) {}
   }, 2000);
+}
+// ─── 系统设置 ───
+let _cfg = null;
+
+function toggleSettings() {
+  const panel = document.getElementById('settingsPanel');
+  if (panel.style.display === 'none') {
+    panel.style.display = 'block';
+    loadConfig();
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+async function loadConfig() {
+  const msgEl = document.getElementById('configMsg');
+  msgEl.style.display = 'none';
+  try {
+    const resp = await fetch('{{.Root}}/api/config?reload=true');
+    const data = await resp.json();
+    if (!data.ok) { showCfgMsg('加载失败', false); return; }
+    _cfg = data.config;
+    renderConfigForm(_cfg);
+  } catch(e) {
+    showCfgMsg('加载配置失败: ' + e.message, false);
+  }
+}
+
+async function saveConfig() {
+  if (!_cfg) { showCfgMsg('请先加载配置', false); return; }
+  readFormToConfig();
+  try {
+    const resp = await fetch('{{.Root}}/api/config', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(_cfg)
+    });
+    const data = await resp.json();
+    showCfgMsg(data.message, data.ok);
+    if (data.ok) {
+      // 保存成功后自动重新加载配置
+      await loadConfig();
+    }
+  } catch(e) {
+    showCfgMsg('保存失败: ' + e.message, false);
+  }
+}
+
+function showCfgMsg(text, ok) {
+  const el = document.getElementById('configMsg');
+  el.style.display = 'block';
+  el.textContent = text;
+  el.style.background = ok ? '#f0fdf4' : '#fff5f5';
+  el.style.color = ok ? '#166534' : '#b91c1c';
+}
+
+function renderConfigForm(cfg) {
+  const form = document.getElementById('configForm');
+  const sectionStyle = 'background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;';
+  const titleStyle = 'font-size:14px;font-weight:700;color:#334155;margin-bottom:10px;';
+  const rowStyle = 'display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;';
+  const labelStyle = 'min-width:120px;font-size:13px;color:#64748b;';
+  const inputStyle = 'flex:1;min-width:150px;padding:6px 10px;border:1px solid #dbe5ef;border-radius:6px;font-size:13px;';
+
+  function row(label, id, value, type) {
+    type = type || 'text';
+    const v = value === undefined || value === null ? '' : value;
+    return '<div style="'+rowStyle+'"><label style="'+labelStyle+'">'+label+'</label><input id="cfg_'+id+'" type="'+type+'" value="'+v+'" style="'+inputStyle+'"></div>';
+  }
+
+  function section(title, content) {
+    return '<div style="'+sectionStyle+'"><div style="'+titleStyle+'">'+title+'</div>'+content+'</div>';
+  }
+
+  let html = '';
+  // QQ空间
+  html += section('🔗 QQ空间', 
+    row('保活间隔', 'qzone_keep_alive', cfg.qzone.keep_alive) +
+    row('最大重试', 'qzone_max_retry', cfg.qzone.max_retry, 'number') +
+    row('超时', 'qzone_timeout', cfg.qzone.timeout)
+  );
+  // Bot
+  html += section('🤖 QQ机器人',
+    row('昵称 (逗号分隔)', 'bot_nickname', (cfg.bot.zero.nickname||[]).join(',')) +
+    row('命令前缀', 'bot_prefix', cfg.bot.zero.command_prefix) +
+    row('超级用户 (逗号分隔)', 'bot_super', (cfg.bot.zero.super_users||[]).join(',')) +
+    row('管理群号', 'bot_manage_group', cfg.bot.manage_group, 'number') +
+    row('WS地址', 'bot_ws_url', cfg.bot.ws && cfg.bot.ws[0] ? cfg.bot.ws[0].url : '') +
+    row('WS Token', 'bot_ws_token', cfg.bot.ws && cfg.bot.ws[0] ? cfg.bot.ws[0].access_token : '')
+  );
+  // 表白墙
+  html += section('💌 表白墙',
+    row('署名', 'wall_show_author', cfg.wall.show_author ? '1' : '0') +
+    '<div style="font-size:11px;color:#94a3b8;margin:-4px 0 8px 128px;">1=显示署名, 0=不显示</div>' +
+    row('默认匿名', 'wall_anon', cfg.wall.anon_default ? '1' : '0') +
+    row('最大图片数', 'wall_max_images', cfg.wall.max_images, 'number') +
+    row('最大文字长度', 'wall_max_text', cfg.wall.max_text_len, 'number') +
+    row('发布延迟', 'wall_delay', cfg.wall.publish_delay)
+  );
+  // Web
+  html += section('🌐 Web 后台',
+    row('监听地址', 'web_addr', cfg.web.addr)
+  );
+  // 修改密码
+  html += section('🔑 修改密码',
+    row('旧密码', 'pw_old', '', 'password') +
+    row('新密码', 'pw_new', '', 'password') +
+    '<div style="margin-top:8px;text-align:right;"><button class="btn-sm btn-primary" type="button" onclick="changePassword()">修改密码</button></div>'
+  );
+  // 敏感词
+  html += section('🚫 敏感词',
+    row('启用', 'censor_enable', cfg.censor.enable ? '1' : '0') +
+    row('敏感词 (逗号分隔)', 'censor_words', (cfg.censor.words||[]).join(',')) +
+    row('词库文件', 'censor_file', cfg.censor.words_file)
+  );
+  // Worker
+  html += section('⚡ 任务调度',
+    row('工作协程数', 'worker_n', cfg.worker.workers, 'number') +
+    row('重试次数', 'worker_retry', cfg.worker.retry_count, 'number') +
+    row('重试间隔', 'worker_retry_delay', cfg.worker.retry_delay) +
+    row('频率限制', 'worker_rate', cfg.worker.rate_limit) +
+    row('轮询间隔', 'worker_poll', cfg.worker.poll_interval)
+  );
+  // 日志
+  html += section('📋 日志',
+    row('级别', 'log_level', cfg.log.level)
+  );
+
+  form.innerHTML = html;
+}
+
+function readFormToConfig() {
+  const v = id => (document.getElementById('cfg_'+id)||{}).value || '';
+  _cfg.qzone.keep_alive = v('qzone_keep_alive');
+  _cfg.qzone.max_retry = parseInt(v('qzone_max_retry')) || 2;
+  _cfg.qzone.timeout = v('qzone_timeout');
+  _cfg.bot.zero.nickname = v('bot_nickname').split(',').map(s=>s.trim()).filter(Boolean);
+  _cfg.bot.zero.command_prefix = v('bot_prefix');
+  _cfg.bot.zero.super_users = v('bot_super').split(',').map(s=>parseInt(s.trim())).filter(n=>!isNaN(n));
+  _cfg.bot.manage_group = parseInt(v('bot_manage_group')) || 0;
+  if (!_cfg.bot.ws || _cfg.bot.ws.length === 0) _cfg.bot.ws = [{}];
+  _cfg.bot.ws[0].url = v('bot_ws_url');
+  _cfg.bot.ws[0].access_token = v('bot_ws_token');
+  _cfg.wall.show_author = v('wall_show_author') === '1';
+  _cfg.wall.anon_default = v('wall_anon') === '1';
+  _cfg.wall.max_images = parseInt(v('wall_max_images')) || 9;
+  _cfg.wall.max_text_len = parseInt(v('wall_max_text')) || 2000;
+  _cfg.wall.publish_delay = v('wall_delay');
+  _cfg.web.addr = v('web_addr');
+  _cfg.censor.enable = v('censor_enable') === '1';
+  _cfg.censor.words = v('censor_words').split(',').map(s=>s.trim()).filter(Boolean);
+  _cfg.censor.words_file = v('censor_file');
+  _cfg.worker.workers = parseInt(v('worker_n')) || 1;
+  _cfg.worker.retry_count = parseInt(v('worker_retry')) || 3;
+  _cfg.worker.retry_delay = v('worker_retry_delay');
+  _cfg.worker.rate_limit = v('worker_rate');
+  _cfg.worker.poll_interval = v('worker_poll');
+  _cfg.log.level = v('log_level');
+}
+
+async function changePassword() {
+  const oldPw = (document.getElementById('cfg_pw_old')||{}).value || '';
+  const newPw = (document.getElementById('cfg_pw_new')||{}).value || '';
+  if (!oldPw || !newPw) { showCfgMsg('请填写旧密码和新密码', false); return; }
+  if (newPw.length < 6) { showCfgMsg('新密码至少6位', false); return; }
+  try {
+    const resp = await fetch('{{.Root}}/api/change-password', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: 'old_password=' + encodeURIComponent(oldPw) + '&new_password=' + encodeURIComponent(newPw)
+    });
+    const data = await resp.json();
+    showCfgMsg(data.message, data.ok);
+    if (data.ok) {
+      document.getElementById('cfg_pw_old').value = '';
+      document.getElementById('cfg_pw_new').value = '';
+    }
+  } catch(e) {
+    showCfgMsg('修改密码失败: ' + e.message, false);
+  }
 }
 </script>
 </body>

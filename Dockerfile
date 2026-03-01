@@ -22,12 +22,10 @@ FROM alpine:latest
 # [新增] 替换为阿里云镜像源
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
-# [修改] 安装 ca-certificates 和 tzdata，并设置时区为 Asia/Shanghai
-RUN apk --no-cache add ca-certificates tzdata \
-    && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
-    && echo "Asia/Shanghai" > /etc/timezone
+# Install ca-certificates for HTTPS requests and tzdata for timezone support
+RUN apk --no-cache add ca-certificates tzdata
 
-# [新增] 设置 TZ 环境变量
+# Set timezone to Asia/Shanghai
 ENV TZ=Asia/Shanghai
 
 # Create a non-root user
@@ -39,11 +37,8 @@ WORKDIR /home/appuser/
 # Copy the binary from builder stage
 COPY --from=builder /app/wall .
 
-# Copy default config from example
-COPY --from=builder /app/cmd/wall/example_config.yaml ./config.yaml
-
-# Create downloads directory
-RUN mkdir -p downloads
+# Create data directory (config, db, uploads all in data/)
+RUN mkdir -p data/uploads
 
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /home/appuser/
@@ -51,8 +46,8 @@ RUN chown -R appuser:appuser /home/appuser/
 # Switch to non-root user
 USER appuser
 
-# Expose port 8080
-EXPOSE 8080
+# Expose port 8081
+EXPOSE 8081
 
 # Run the application
 CMD ["./wall"]

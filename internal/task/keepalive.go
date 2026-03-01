@@ -38,18 +38,18 @@ func NewKeepAlive(qzoneCfg config.QzoneConfig, botCfg config.BotConfig, client *
 }
 
 func (k *KeepAlive) Start() {
-	if k.qzoneCfg.KeepAlive <= 0 {
+	if k.qzoneCfg.KeepAlive.Duration <= 0 {
 		log.Println("[KeepAlive] disabled (keep_alive <= 0)")
 		return
 	}
 	go k.run()
-	log.Printf("[KeepAlive] started, interval=%v", k.qzoneCfg.KeepAlive)
+	log.Printf("[KeepAlive] started, interval=%v", k.qzoneCfg.KeepAlive.Duration)
 }
 
 func (k *KeepAlive) Stop() { k.cancel() }
 
 func (k *KeepAlive) run() {
-	ticker := time.NewTicker(k.qzoneCfg.KeepAlive)
+	ticker := time.NewTicker(k.qzoneCfg.KeepAlive.Duration)
 	defer ticker.Stop()
 
 	for {

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite"
+	_ "github.com/glebarez/sqlite"
 
 	"github.com/guohuiyuan/qzonewall-go/internal/model"
 )
@@ -242,6 +242,15 @@ func (s *Store) AccountCount() (int, error) {
 	var n int
 	err := s.db.QueryRow("SELECT COUNT(*) FROM accounts").Scan(&n)
 	return n, err
+}
+
+// UpdateAccountPassword 更新账号密码
+func (s *Store) UpdateAccountPassword(username, passwordHash, salt string) error {
+	_, err := s.db.Exec(
+		"UPDATE accounts SET password_hash=?, salt=? WHERE username=?",
+		passwordHash, salt, username,
+	)
+	return err
 }
 
 // ──────────────────────────────────────────
