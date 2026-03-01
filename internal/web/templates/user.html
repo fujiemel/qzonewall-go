@@ -198,10 +198,10 @@
         <textarea name="text" placeholder="写下你想说的话..." required></textarea>
       </div>
       <div class="form-group">
-        <label>图片（最多 {{.MaxImages}} 张）</label>
+        <label>图片（最多 {{.MaxImages}} 张，单张限制 {{.MaxImageSize}}MB）</label>
         <label class="file-label">
           📷 选择图片
-          <input type="file" name="images" accept="image/*" multiple id="imageInput">
+          <input type="file" name="images" accept="image/png, image/jpeg, image/gif, image/webp" multiple id="imageInput">
         </label>
         <div class="preview" id="preview"></div>
       </div>
@@ -217,9 +217,25 @@
 <script>
 const imageInput = document.getElementById('imageInput');
 const preview = document.getElementById('preview');
+const MAX_IMAGES = parseInt('{{.MaxImages}}') || 9;
+const MAX_IMAGE_SIZE_MB = parseInt('{{.MaxImageSize}}') || 5;
+
 imageInput.addEventListener('change', function() {
   preview.innerHTML = '';
+  
+  if (this.files.length > MAX_IMAGES) {
+    alert(`最多只能选择 ${MAX_IMAGES} 张图片`);
+    this.value = '';
+    return;
+  }
+  
   for (const file of this.files) {
+    if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
+      alert(`图片 ${file.name} 大小超过限制 (${MAX_IMAGE_SIZE_MB}MB)`);
+      this.value = '';
+      preview.innerHTML = '';
+      return;
+    }
     const img = document.createElement('img');
     img.src = URL.createObjectURL(file);
     preview.appendChild(img);

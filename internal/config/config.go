@@ -83,6 +83,7 @@ type WallConfig struct {
 	ShowAuthor   bool     `json:"show_author"`
 	AnonDefault  bool     `json:"anon_default"`
 	MaxImages    int      `json:"max_images"`
+	MaxImageSize int64    `json:"max_image_size"` // 以 MB 为单位
 	MaxTextLen   int      `json:"max_text_len"`
 	PublishDelay Duration `json:"publish_delay"`
 }
@@ -165,6 +166,9 @@ func (c *Config) setDefaults() {
 	}
 	if c.Wall.MaxImages == 0 {
 		c.Wall.MaxImages = 9
+	}
+	if c.Wall.MaxImageSize == 0 {
+		c.Wall.MaxImageSize = 5 // 默认 5MB
 	}
 	if c.Wall.MaxTextLen == 0 {
 		c.Wall.MaxTextLen = 2000

@@ -134,20 +134,20 @@ docker build -t qzonewall-go .
 
 ```bash
 # 标记镜像
-docker tag qzonewall-go:latest guohuiyuan/qzonewall-go:latest
+docker tag qzonewall-go:latest jinyijiang/qzonewall-go:latest
 
 # 推送镜像
-docker push guohuiyuan/qzonewall-go:latest
+docker push jinyijiang/qzonewall-go:latest
 
 # 可选：推送特定版本标签
-docker tag qzonewall-go:latest guohuiyuan/qzonewall-go:1.0.0
-docker push guohuiyuan/qzonewall-go:1.0.0
+docker tag qzonewall-go:latest jinyijiang/qzonewall-go:1.0.0
+docker push jinyijiang/qzonewall-go:1.0.0
 ```
 
 #### 拉取镜像
 
 ```bash
-docker pull guohuiyuan/qzonewall-go:latest
+docker pull jinyijiang/qzonewall-go:latest
 ```
 
 #### 运行容器

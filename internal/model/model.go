@@ -45,6 +45,9 @@ func (p *Post) ShowName() string {
 	if p.Anon {
 		return "匿名用户"
 	}
+	if p.UIN > 0 {
+		return fmt.Sprintf("%s (%d)", p.Name, p.UIN)
+	}
 	return p.Name
 }
 

@@ -146,6 +146,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc(s.url("/api/submit"), s.handleAPISubmit)
 	mux.HandleFunc(s.url("/api/approve"), s.handleAPIApprove)
 	mux.HandleFunc(s.url("/api/reject"), s.handleAPIReject)
+	mux.HandleFunc(s.url("/api/delete"), s.handleAPIDelete)
 	mux.HandleFunc(s.url("/api/approve/batch"), s.handleAPIBatchApprove)
 	mux.HandleFunc(s.url("/api/reject/batch"), s.handleAPIBatchReject)
 	mux.HandleFunc(s.url("/api/qrcode"), s.handleAPIQRCode)
@@ -298,13 +299,14 @@ func (s *Server) handleSubmitPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{
-		"Account":     account,
-		"IsAdmin":     account != nil && account.IsAdmin(),
-		"MaxImages":   s.wallCfg.MaxImages,
-		"Message":     r.URL.Query().Get("msg"),
-		"QzoneUIN":    qzoneUIN,
-		"QzoneOnline": qzoneOnline,
-		"Root":        s.prefix, // [修改] 注入 Root
+		"Account":      account,
+		"IsAdmin":      account != nil && account.IsAdmin(),
+		"MaxImages":    s.wallCfg.MaxImages,
+		"MaxImageSize": s.wallCfg.MaxImageSize,
+		"Message":      r.URL.Query().Get("msg"),
+		"QzoneUIN":     qzoneUIN,
+		"QzoneOnline":  qzoneOnline,
+		"Root":         s.prefix, // [修改] 注入 Root
 	}
 	s.renderTemplate(w, "user.html", data)
 }
@@ -390,15 +392,36 @@ func (s *Server) handleAPISubmit(w http.ResponseWriter, r *http.Request) {
 		if len(images) >= s.wallCfg.MaxImages {
 			break
 		}
+
+		// 检查大小
+		if fh.Size > s.wallCfg.MaxImageSize*1024*1024 {
+			jsonResp(w, 400, false, fmt.Sprintf("图片 %s 大小超过限制 (%dMB)", fh.Filename, s.wallCfg.MaxImageSize))
+			return
+		}
+
+		ext := strings.ToLower(filepath.Ext(fh.Filename))
+		if ext == "" {
+			ext = ".jpg"
+		}
+
+		// 检查类型
+		validExts := map[string]bool{
+			".jpg":  true,
+			".jpeg": true,
+			".png":  true,
+			".gif":  true,
+			".webp": true,
+		}
+		if !validExts[ext] {
+			jsonResp(w, 400, false, fmt.Sprintf("不支持的图片格式: %s", ext))
+			return
+		}
+
 		f, err := fh.Open()
 		if err != nil {
 			continue
 		}
 
-		ext := filepath.Ext(fh.Filename)
-		if ext == "" {
-			ext = ".jpg"
-		}
 		filename := fmt.Sprintf("%d_%s%s", time.Now().UnixNano(), randomHex(8), ext)
 		dst, err := os.Create(filepath.Join(s.uploadDir, filename))
 		if err != nil {
@@ -501,6 +524,43 @@ func (s *Server) handleAPIReject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonResp(w, 200, true, fmt.Sprintf("稿件 #%d 已拒绝", id))
+}
+
+func (s *Server) handleAPIDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonResp(w, 405, false, "仅支持 POST")
+		return
+	}
+	account := s.currentAccount(r)
+	if account == nil || !account.IsAdmin() {
+		jsonResp(w, 403, false, "无权限")
+		return
+	}
+
+	idStr := r.FormValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		jsonResp(w, 400, false, "编号格式错误")
+		return
+	}
+	post, err := s.store.GetPost(id)
+	if err != nil || post == nil {
+		jsonResp(w, 404, false, "稿件不存在")
+		return
+	}
+
+	for _, img := range post.Images {
+		if strings.HasPrefix(img, "/uploads/") {
+			fileName := strings.TrimPrefix(img, "/uploads/")
+			_ = os.Remove(filepath.Join(s.uploadDir, fileName))
+		}
+	}
+
+	if err := s.store.DeletePost(id); err != nil {
+		jsonResp(w, 500, false, "删除失败")
+		return
+	}
+	jsonResp(w, 200, true, fmt.Sprintf("稿件 #%d 已删除", id))
 }
 
 func (s *Server) handleAPIBatchApprove(w http.ResponseWriter, r *http.Request) {

@@ -1,6 +1,6 @@
 services:
   qzonewall:
-    image: guohuiyuan/qzonewall-go:latest
+    image: jinyijiang/qzonewall-go:latest
     container_name: qzonewall
     restart: unless-stopped
     ports:
