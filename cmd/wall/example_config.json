@@ -1,0 +1,61 @@
+{
+    "qzone": {
+        "keep_alive": "10s",
+        "max_retry": 2,
+        "timeout": "30s"
+    },
+    "bot": {
+        "zero": {
+            "nickname": [
+                "表白墙",
+                "墙墙"
+            ],
+            "command_prefix": "/",
+            "super_users": [
+                123456789
+            ],
+            "ring_len": 4096,
+            "latency": 1000000,
+            "max_process_time": 240000000000
+        },
+        "ws": [
+            {
+                "url": "ws://localhost:3001",
+                "access_token": "your_token"
+            }
+        ],
+        "manage_group": 0
+    },
+    "wall": {
+        "show_author": false,
+        "anon_default": false,
+        "max_images": 9,
+        "max_text_len": 2000,
+        "publish_delay": "0s"
+    },
+    "database": {
+        "path": "data/data.db"
+    },
+    "web": {
+        "enable": true,
+        "addr": ":8081"
+    },
+    "censor": {
+        "enable": true,
+        "words": [
+            "广告",
+            "代写"
+        ],
+        "words_file": ""
+    },
+    "worker": {
+        "workers": 1,
+        "retry_count": 3,
+        "retry_delay": "5s",
+        "rate_limit": "30s",
+        "poll_interval": "5s"
+    },
+    "log": {
+        "level": "info"
+    }
+}

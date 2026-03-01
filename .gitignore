@@ -3,5 +3,5 @@ cookie.txt
 *.exe
 *.jpg
 qrcode.png
-wall*
+/wall*
 config.json
