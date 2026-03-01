@@ -539,7 +539,7 @@ func (s *Server) handleAPIBatchApprove(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var summaryBuilder strings.Builder
-	summaryBuilder.WriteString(fmt.Sprintf("【表白墙更新】 %s\n", time.Now().Format("01/02")))
+	fmt.Fprintf(&summaryBuilder, "【表白墙更新】 %s\n", time.Now().Format("01/02"))
 	summaryBuilder.WriteString("----------------\n")
 
 	var imagesData [][]byte
@@ -565,12 +565,12 @@ func (s *Server) handleAPIBatchApprove(w http.ResponseWriter, r *http.Request) {
 
 		content := []rune(post.Text)
 		if len(content) > 20 {
-			summaryBuilder.WriteString(fmt.Sprintf("#%d: %s...\n", post.ID, string(content[:20])))
+			fmt.Fprintf(&summaryBuilder, "#%d: %s...\n", post.ID, string(content[:20]))
 		} else {
 			if post.Text == "" {
-				summaryBuilder.WriteString(fmt.Sprintf("#%d: [图片]\n", post.ID))
+				fmt.Fprintf(&summaryBuilder, "#%d: [图片]\n", post.ID)
 			} else {
-				summaryBuilder.WriteString(fmt.Sprintf("#%d: %s\n", post.ID, post.Text))
+				fmt.Fprintf(&summaryBuilder, "#%d: %s\n", post.ID, post.Text)
 			}
 		}
 

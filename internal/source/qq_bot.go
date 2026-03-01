@@ -458,7 +458,7 @@ func (b *QQBot) handleListPending(ctx *zero.Ctx) {
 		return
 	}
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("📋 待审核稿件 (%d 件):\n\n", len(posts)))
+	fmt.Fprintf(&sb, "📋 待审核稿件 (%d 件):\n\n", len(posts))
 	for _, p := range posts {
 		sb.WriteString(p.Summary())
 		sb.WriteString("---\n")
